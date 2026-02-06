@@ -1,0 +1,176 @@
+﻿/* dashboard.css */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    /* Тот самый зеленый фон как при входе */
+    background-color: #e8f5e9;
+    margin: 0;
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+/* Белый лист */
+.main-container {
+    background-color: white;
+    width: 100%;
+    max-width: 1200px;
+    border-radius: 20px;
+    padding: 40px; /* Чуть больше воздуха внутри */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    margin-top: 20px;
+}
+
+/* --- ШАПКА --- */
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 20px;
+}
+
+.brand {
+    font-size: 32px; /* УВЕЛИЧИЛИ (было 24) */
+    font-weight: bold;
+    color: #1b5e20; /* Темно-зеленый */
+}
+
+.user-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px; /* Отступ между чатом и аватаркой */
+}
+
+/* Иконка чата */
+.chat-icon {
+    font-size: 28px;
+    color: #555;
+    text-decoration: none;
+    transition: transform 0.2s, color 0.2s;
+}
+
+    .chat-icon:hover {
+        color: #2e7d32;
+        transform: scale(1.1);
+    }
+
+/* Аватарка */
+.profile-circle {
+    width: 55px;
+    height: 55px;
+    background-color: #1e8e3e; /* Зеленый фон (пока не загрузится картинка) */
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    font-weight: bold;
+    text-decoration: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    /* Важно для фото: */
+    background-size: cover;
+    background-position: center;
+}
+
+    .profile-circle:hover {
+        background-color: #16692e;
+    }
+
+/* --- ФИЛЬТРЫ (В ОДНУ СТРОКУ) --- */
+.filters-bar {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 30px;
+    align-items: center; /* Центрируем по вертикали */
+}
+
+.filter-select {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: white;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.search-input {
+    flex-grow: 1; /* Занимает всё свободное место */
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* --- СЕТКА --- */
+.courses-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); /* Карточки чуть шире */
+    gap: 30px;
+}
+
+/* --- КАРТОЧКА --- */
+.course-card {
+    background: white;
+    border: 1px solid #eee;
+    border-radius: 12px; /* Сильнее скругление */
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+    .course-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        border-color: #c8e6c9;
+    }
+
+.course-image {
+    height: 180px; /* Картинка чуть выше */
+    background-size: cover;
+    background-position: center;
+    background-color: #f0f0f0;
+}
+
+.course-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.course-title {
+    margin: 0 0 10px 0;
+    color: #2e7d32; /* Зеленый заголовок */
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.course-desc {
+    color: #555;
+    font-size: 14px;
+    margin-bottom: 15px;
+    flex-grow: 1;
+}
+
+/* Блок учителя */
+.teacher-info {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 15px;
+    margin-top: auto;
+    font-size: 13px;
+    color: #777;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}

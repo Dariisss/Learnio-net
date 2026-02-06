@@ -1,0 +1,50 @@
+﻿<!DOCTYPE html>
+<html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile</title>
+    <link rel="stylesheet" href="profile.css">
+</head>
+<body>
+
+    <div class="profile-container">
+        <a href="dashboard.html" class="back-btn">←</a>
+
+        <div class="profile-avatar-large" id="avatar-display">
+            <span>A</span>
+
+            <button class="edit-photo-btn" onclick="document.getElementById('file-input').click()" title="Upload photo">📷</button>
+        </div>
+
+        <input type="file" id="file-input" style="display: none;" accept="image/*" onchange="uploadPhoto()">
+
+        <h2>My Profile</h2>
+
+        <div class="form-group">
+            <label>First Name</label>
+            <input type="text" id="first-name" readonly style="background-color: #f9f9f9; color: #555;">
+        </div>
+
+        <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" id="last-name" readonly style="background-color: #f9f9f9; color: #555;">
+        </div>
+
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="email" readonly>
+        </div>
+
+        <p style="color: #888; font-size: 12px; margin-top: 10px;">
+            To change your name or email, please contact the administrator.
+        </p>
+
+        <button class="btn btn-danger" onclick="logout()">Logout</button>
+    </div>
+
+    <script src="profile.js"></script>
+</body>
+</html>

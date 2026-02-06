@@ -57,6 +57,7 @@ namespace Learnio
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
+            app.UseStaticFiles(); // <--- Разрешаем открывать index.html
 
             app.UseHttpsRedirection();
 
@@ -64,8 +65,9 @@ namespace Learnio
 
             app.UseAuthorization();
 
-
             app.MapControllers();
+
+            app.MapFallbackToFile("index.html"); // Если путь не найден - открывай index.html
 
             app.Run();
         }
