@@ -8,8 +8,14 @@ namespace Learnio.Entities
         public DateTime SubmissionDate { get; set; } = DateTime.UtcNow;
         public string? TextAnswer { get; set; }
         public string? FilePath { get; set; }
+
+        // Тичер 
         public int? Grade { get; set; } // Оценка (может быть null)
         public string? TeacherComments { get; set; } // Твоё поле
+
+        // --- МНЕНИЕ AI (ДЛЯ УЧИТЕЛЯ) ---
+        public int? AiRecommendedGrade { get; set; } // <--- Новое поле
+        public string? AiFeedback { get; set; }      // <--- Новое поле
 
         // Связь: Студент
         public string StudentId { get; set; }
