@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualBasic;
 using System;
+using Learnio.Entities; 
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Learnio.Entities
@@ -17,5 +18,6 @@ namespace Learnio.Entities
         public string TeacherId { get; set; }
         [ForeignKey("TeacherId")]
         public AppUser? Teacher { get; set; }
+        public List<Enrollment> Enrollments { get; set; } = new();
     }
 }

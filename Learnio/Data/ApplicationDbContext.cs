@@ -39,7 +39,7 @@ namespace Learnio.Data
             // Курс -> Enrollment (Удаляем)
             builder.Entity<Enrollment>()
                 .HasOne(e => e.Course)
-                .WithMany()
+                .WithMany(c => c.Enrollments)
                 .HasForeignKey(e => e.CourseId)
                 .OnDelete(DeleteBehavior.Cascade);
 

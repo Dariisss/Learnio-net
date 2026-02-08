@@ -46,7 +46,8 @@ async function loadUserAvatar() {
 async function loadCourses() {
     const container = document.getElementById('courses-container');
     try {
-        const response = await fetch(`${API_URL}/Courses`);
+        // Передаем userId в запрос, чтобы сервер отфильтровал лишнее
+        const response = await fetch(`${API_URL}/Courses?userId=${localStorage.getItem('userId')}`);
         if (!response.ok) return;
 
         const courses = await response.json();

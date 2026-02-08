@@ -54,20 +54,34 @@ namespace Learnio.Controllers
             return Ok(course);
         }
 
-        // 2. ПОЛУЧИТЬ ВСЕ КУРСЫ
+        // 2. ПОЛУЧИТЬ КУРСЫ (С ФИЛЬТРАЦИЕЙ)
+        // GET: api/Courses?userId=...
         [HttpGet]
-        public async Task<IActionResult> GetCourses()
+        public async Task<IActionResult> GetCourses([FromQuery] string? userId)
         {
-            var courses = await _context.Courses
+            // Начинаем запрос к базе
+            var query = _context.Courses
                 .Include(c => c.Teacher)
+                .AsQueryable();
+
+            // Если передали ID пользователя - включаем фильтр
+            if (!string.IsNullOrEmpty(userId))
+            {
+                query = query.Where(c =>
+                    c.TeacherId == userId || // 1. Я - Учитель этого курса
+                    c.Enrollments.Any(e => e.StudentId == userId) // 2. ИЛИ Я - Студент (есть запись в Enrollments)
+                );
+            }
+
+            // Превращаем данные в красивый вид для сайта
+            var courses = await query
                 .Select(c => new
                 {
                     c.Id,
                     c.Name,
                     c.Description,
-                    c.TeacherId, // Обязательно возвращаем ID, чтобы фронт мог сравнить
-                    c.JoinCode,  // Возвращаем код (он нужен учителю)
-                    // Имя учителя для карточки
+                    c.TeacherId,
+                    c.JoinCode,
                     TeacherName = c.Teacher == null ? "Unknown" : c.Teacher.FirstName + " " + c.Teacher.LastName
                 })
                 .ToListAsync();
