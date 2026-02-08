@@ -7,14 +7,14 @@
     <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
-
     <div class="main-container">
-
         <div class="header-row">
             <div class="brand">My courses</div>
 
             <div class="user-controls">
-                <a href="chat.html" class="chat-icon" title="Messages">💬</a>
+                <a href="#" onclick="openModal()" class="icon-btn" title="Create new course">➕</a>
+
+                <a href="chat.html" class="icon-btn" title="Messages">💬</a>
 
                 <a href="profile.html" class="profile-circle" id="user-avatar" title="My Profile">U</a>
             </div>
@@ -29,16 +29,29 @@
 
             <input type="text" class="search-input" placeholder="Search courses...">
 
-            <select class="filter-select" style="width: 180px;">
-                <option>Sort by name</option>
-                <option>Sort by last accessed</option>
-            </select>
+            <div class="join-wrapper">
+                <input type="text" id="join-code-input" class="search-input join-input" placeholder="Enter code...">
+                <button class="btn-join" onclick="joinCourse()">Join</button>
+            </div>
+
         </div>
 
         <div class="courses-grid" id="courses-container">
             <p>Loading...</p>
         </div>
+    </div>
 
+    <div id="create-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Create New Course</h3>
+            <input type="text" id="new-course-name" placeholder="Course Name (e.g. Physics)" class="modal-input">
+            <input type="text" id="new-course-desc" placeholder="Short description (optional)..." class="modal-input">
+
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn-save" onclick="createCourse()">Create</button>
+            </div>
+        </div>
     </div>
 
     <script src="dashboard.js"></script>

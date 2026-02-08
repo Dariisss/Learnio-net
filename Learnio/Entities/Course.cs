@@ -16,6 +16,6 @@ namespace Learnio.Entities
         // Связь с учителем
         public string TeacherId { get; set; }
         [ForeignKey("TeacherId")]
-        public AppUser Teacher { get; set; }
+        public AppUser? Teacher { get; set; }
     }
 }

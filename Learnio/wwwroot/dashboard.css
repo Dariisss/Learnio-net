@@ -43,9 +43,9 @@ body {
 }
 
 .user-controls {
-    display: flex;
-    align-items: center;
-    gap: 20px; /* Отступ между чатом и аватаркой */
+    display: flex; /* Выстраивает их в ряд */
+    align-items: center; /* Выравнивает по центру */
+    gap: 16x; /* Делает красивый отступ 20px между иконками */
 }
 
 /* Иконка чата */
@@ -174,3 +174,133 @@ body {
     align-items: center;
     gap: 8px;
 }
+
+/* --- КНОПКА СОЗДАНИЯ --- */
+.btn-create {
+    background-color: #2e7d32;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-right: 15px;
+    transition: 0.2s;
+}
+
+    .btn-create:hover {
+        background-color: #1b5e20;
+    }
+
+/* --- МОДАЛЬНОЕ ОКНО (Всплывашка) --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5); /* Затемнение */
+    display: none; /* Скрыто по умолчанию */
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-box {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    width: 400px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    text-align: center;
+}
+
+.modal-input {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.btn-save {
+    background: #2e7d32;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-cancel {
+    background: #eee;
+    color: #333;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* СТИЛЬ ДЛЯ ИКОНОК (ЧАТ И ПЛЮС) */
+.icon-btn {
+    text-decoration: none;
+    font-size: 24px;
+    margin-right: 20px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    filter: grayscale(100%); /* Серые по умолчанию */
+    border: none;
+    background: none;
+}
+
+    .icon-btn:hover {
+        transform: scale(1.2); /* Чуть увеличиваются */
+        filter: grayscale(0%); /* Становятся цветными */
+    }
+
+    /* Контейнер, чтобы инпут и кнопка прилипли друг к другу */
+    .join-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px; /* Небольшой отступ между полем и кнопкой */
+    }
+
+    /* Поле ввода кода */
+    .join-input {
+        width: 140px; /* Чуть шире, чтобы влезло слово */
+        text-transform: uppercase; /* То, что печатаем - будет БОЛЬШИМ */
+        height: 42px;
+        margin: 0;
+    }
+
+    /* А ВОТ ЭТО - МАГИЯ ДЛЯ ПОДСКАЗКИ */
+    .join-input::placeholder {
+        text-transform: none; /* Подсказка остается обычной */
+        font-size: 14px; /* Размер как у поиска */
+        color: #757575; /* Цвет как у поиска */
+    }
+/* Кнопка Join */
+.btn-join {
+    height: 42px; /* ТАКАЯ ЖЕ высота как у инпута */
+    background-color: #2e7d32;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0 20px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+    .btn-join:hover {
+        background-color: #1b5e20;
+    }
+
+/* ... остальной код (модалка и т.д.) ... */

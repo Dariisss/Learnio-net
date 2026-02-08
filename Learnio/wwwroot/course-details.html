@@ -1,0 +1,167 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Details</title>
+    <link rel="stylesheet" href="dashboard.css">
+    <style>
+        /* Стиль для кнопки в меню */
+        .btn-menu-add {
+            width: 100%;
+            background-color: #2e7d32;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            display: none; /* Скрыто по умолчанию */
+        }
+
+            .btn-menu-add:hover {
+                background-color: #1b5e20;
+            }
+
+        /* Аккуратная стрелка назад */
+        .back-arrow {
+            text-decoration: none;
+            color: #2e7d32;
+            font-size: 24px;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .course-layout {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            height: fit-content;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .menu-item {
+            display: block;
+            padding: 12px 15px;
+            color: #555;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+
+            .menu-item:hover {
+                background-color: #f0f7f1;
+                color: #2e7d32;
+            }
+
+            .menu-item.active {
+                background-color: #e8f5e9;
+                color: #1b5e20;
+                font-weight: bold;
+            }
+
+        .content-area {
+            flex-grow: 1;
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            min-height: 500px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <div class="header-row">
+            <div style="display: flex; align-items: center;">
+                <a href="dashboard.html" class="back-arrow">←</a>
+                <div class="brand" id="course-title">Loading...</div>
+            </div>
+
+            <div class="user-controls">
+                <a href="profile.html" class="profile-circle" id="user-avatar">U</a>
+            </div>
+        </div>
+
+        <div class="course-layout">
+            <div class="sidebar">
+                <div class="menu-item active" onclick="switchTab('stream')">Stream</div>
+                <div class="menu-item" onclick="switchTab('assignments')">Assignments</div>
+                <div class="menu-item" onclick="switchTab('people')">People</div>
+                <div class="menu-item" onclick="switchTab('grades')">Grades</div>
+
+                <div id="teacher-code-area" style="
+                    display:none;
+                    margin-top: 25px;
+                    background: #f1f8e9; /* Очень светло-зеленый */
+                    padding: 15px;
+                    border-radius: 12px;
+                    border: 2px dashed #a5d6a7; /* Пунктирная рамка */
+                    text-align: center;
+                    position: relative;
+                ">
+                    <div style="
+                        font-size: 10px;
+                        text-transform: uppercase;
+                        color: #558b2f;
+                        font-weight: bold;
+                        letter-spacing: 1px;
+                        margin-bottom: 5px;
+                    ">
+                        Course Code
+                    </div>
+
+                    <div id="course-join-code" style="
+                        font-size: 24px;
+                        font-family: 'Courier New', monospace; /* Шрифт как на печатной машинке */
+                        font-weight: 900;
+                        color: #2e7d32;
+                        letter-spacing: 3px;
+                    ">
+                        ...
+                    </div>
+
+                    <div style="font-size: 10px; color: #888; margin-top: 5px;">
+                        Share with students
+                    </div>
+                </div>
+
+                <button id="btn-add-assignment" class="btn-menu-add" onclick="openAssignmentModal()">
+                    + New Assignment
+                </button>
+            </div>
+
+            <div class="content-area" id="main-content">
+                <p>Loading...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="assignment-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-box">
+            <h3>New Assignment</h3>
+            <input type="text" id="assign-name" placeholder="Title (e.g. Essay)" class="modal-input">
+            <input type="text" id="assign-desc" placeholder="Instructions..." class="modal-input">
+            <label style="display:block; text-align:left; font-size: 12px; color: #666; margin-top: 10px;">Deadline:</label>
+            <input type="datetime-local" id="assign-deadline" class="modal-input">
+            <input type="number" id="assign-score" placeholder="Max Score (e.g. 100)" class="modal-input">
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeAssignmentModal()">Cancel</button>
+                <button class="btn-save" onclick="createAssignment()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="course-details.js"></script>
+</body>
+</html>
