@@ -54,7 +54,7 @@ async function loadCourses() {
         container.innerHTML = '';
 
         if (courses.length === 0) {
-            container.innerHTML = '<p>No courses found. Create one +</p>';
+            container.innerHTML = '<p>No courses found. Create one + or join by code</p>';
             return;
         }
 

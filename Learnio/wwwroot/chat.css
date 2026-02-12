@@ -1,0 +1,221 @@
+﻿:root {
+    --chat-green: #43a047; /* Светлый зеленый (Learnio) */
+    --chat-green-hover: #2e7d32; /* Темнее при наведении */
+    --chat-bg-white: #ffffff;
+}
+
+/* ============================
+   ГЛАВНЫЙ КОНТЕЙНЕР (САЙДБАР)
+   ============================ */
+#chat-sidebar {
+    position: fixed;
+    top: 0;
+    right: -400px; /* Спрятан полностью за пределы экрана */
+    width: 400px; /* Ширина самого чата */
+    height: 100vh; /* На всю высоту */
+    background: var(--chat-bg-white);
+    box-shadow: -5px 0 20px rgba(0,0,0,0.15);
+    z-index: 2000; /* Поверх всего сайта */
+    transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); /* Плавная анимация */
+    display: flex;
+    flex-direction: column;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+    /* Класс open добавляется через JS, когда чат выезжает */
+    #chat-sidebar.open {
+        right: 0;
+    }
+
+/* ============================
+   ЯЗЫЧОК (ЗАКЛАДКА СБОКУ)
+   ============================ */
+#chat-handle {
+    /* Скрыт по умолчанию (display: none). JS включит его (display: flex), когда нужно. */
+    display: none;
+    position: absolute; /* Приклеен к #chat-sidebar */
+    left: -50px; /* Сдвинут влево на 50px, чтобы торчать наружу */
+    top: 120px; /* Высота от верха экрана */
+    width: 50px;
+    height: 50px;
+    background: var(--chat-green);
+    color: white;
+    border-radius: 10px 0 0 10px; /* Закругляем левые углы */
+    cursor: pointer;
+    z-index: 2001;
+    /* Центрируем иконку 💬 */
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    box-shadow: -2px 2px 5px rgba(0,0,0,0.2);
+}
+
+    #chat-handle:hover {
+        background: var(--chat-green-hover);
+    }
+
+/* ============================
+   ВНУТРЕННОСТИ ЧАТА
+   ============================ */
+
+/* --- ШАПКА --- */
+.chat-header {
+    padding: 20px;
+    background: var(--chat-green);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.chat-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-title {
+    font-weight: bold;
+    font-size: 18px;
+}
+
+/* Крестик закрытия */
+.close-btn {
+    cursor: pointer;
+    font-size: 20px;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+    .close-btn:hover {
+        opacity: 1;
+    }
+
+/* Аватарки */
+.chat-avatars-row {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto; /* Скролл если много людей */
+    padding-bottom: 5px;
+}
+
+    .chat-avatars-row::-webkit-scrollbar {
+        height: 0px;
+    }
+/* Скрываем полосу прокрутки */
+
+.chat-avatar {
+    width: 45px;
+    height: 45px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    cursor: pointer;
+    border: 2px solid transparent;
+    flex-shrink: 0;
+    color: white;
+    font-size: 14px;
+}
+
+    .chat-avatar.active {
+        background: white;
+        color: var(--chat-green);
+        border-color: #a5d6a7;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+/* --- ТЕЛО СООБЩЕНИЙ --- */
+.chat-body {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background: #f4f7f6;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.message {
+    max-width: 85%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.4;
+    word-wrap: break-word;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+    .message.incoming {
+        align-self: flex-start;
+        background: white;
+        color: #333;
+        border-bottom-left-radius: 2px;
+    }
+
+    .message.outgoing {
+        align-self: flex-end;
+        background: #dcedc8; /* Светло-зеленый фон для своих */
+        color: #1b5e20;
+        border-bottom-right-radius: 2px;
+    }
+
+.msg-time {
+    font-size: 10px;
+    opacity: 0.6;
+    text-align: right;
+    margin-top: 5px;
+}
+
+/* --- ФУТЕР (ВВОД) --- */
+.chat-footer {
+    padding: 20px;
+    background: white;
+    border-top: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#chat-input {
+    flex-grow: 1;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 15px;
+    outline: none;
+    resize: none;
+    height: 50px; /* Высокое поле ввода */
+    font-family: inherit;
+    font-size: 14px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+    #chat-input:focus {
+        border-color: var(--chat-green);
+        overflow-y: auto; /* Скролл появится только если много текста */
+    }
+
+#chat-send-btn {
+    background: var(--chat-green);
+    color: white;
+    border: none;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: transform 0.1s;
+}
+
+    #chat-send-btn:hover {
+        background: var(--chat-green-hover);
+        transform: scale(1.05);
+    }

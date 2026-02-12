@@ -9,6 +9,7 @@ namespace Learnio.Entities
         public string? Description { get; set; } // Описание
         public DateTime Deadline { get; set; }
         public int MaxScore { get; set; }
+        public string? AttachmentUrl { get; set; }
 
         // Связь с курсом
         public Guid CourseId { get; set; }

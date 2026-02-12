@@ -1,0 +1,38 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Learnio</title>
+    <link rel="stylesheet" href="register.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <h1>Learnio🌱</h1>
+            <h3>Create your account</h3>
+
+            <div class="form-group">
+                <input type="text" id="reg-firstname" placeholder="First Name" class="auth-input">
+            </div>
+            <div class="form-group">
+                <input type="text" id="reg-lastname" placeholder="Last Name" class="auth-input">
+            </div>
+            <div class="form-group">
+                <input type="email" id="reg-email" placeholder="Email" class="auth-input">
+            </div>
+            <div class="form-group">
+                <input type="password" id="reg-password" placeholder="Password" class="auth-input">
+            </div>
+
+            <button onclick="registerUser()" class="btn-primary">Sign Up</button>
+
+            <div class="auth-footer">
+                Already have an account? <a href="index.html">Log in here</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="register.js"></script>
+</body>
+</html>

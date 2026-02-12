@@ -219,6 +219,7 @@ namespace Learnio.Migrations
                     Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Deadline = table.Column<DateTime>(type: "datetime2", nullable: false),
                     MaxScore = table.Column<int>(type: "int", nullable: false),
+                    AttachmentUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CourseId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
                 },
                 constraints: table =>
@@ -268,6 +269,8 @@ namespace Learnio.Migrations
                     FilePath = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Grade = table.Column<int>(type: "int", nullable: true),
                     TeacherComments = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    AiRecommendedGrade = table.Column<int>(type: "int", nullable: true),
+                    AiFeedback = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     StudentId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     AssignmentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
                 },

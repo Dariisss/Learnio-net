@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Course Details</title>
     <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="/chat.css" asp-append-version="true">
     <style>
         /* Стиль для кнопки в меню */
         .btn-menu-add {
@@ -77,6 +78,16 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             min-height: 500px;
         }
+
+        /* Стили для инпутов в модалке (чтобы было красиво, если CSS не подгрузился) */
+        .modal-input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-family: inherit;
+        }
     </style>
 </head>
 <body>
@@ -97,6 +108,7 @@
             <div class="sidebar">
                 <div class="menu-item active" onclick="switchTab('stream')">Stream</div>
                 <div class="menu-item" onclick="switchTab('assignments')">Assignments</div>
+                <div class="menu-item" onclick="switchTab('submissions')">Submissions</div>
                 <div class="menu-item" onclick="switchTab('people')">People</div>
                 <div class="menu-item" onclick="switchTab('grades')">Grades</div>
 
@@ -148,20 +160,30 @@
     </div>
 
     <div id="assignment-modal" class="modal-overlay" style="display:none;">
-        <div class="modal-box">
-            <h3>New Assignment</h3>
-            <input type="text" id="assign-name" placeholder="Title (e.g. Essay)" class="modal-input">
-            <input type="text" id="assign-desc" placeholder="Instructions..." class="modal-input">
-            <label style="display:block; text-align:left; font-size: 12px; color: #666; margin-top: 10px;">Deadline:</label>
+        <div class="modal-content">
+            <h3 style="margin-top:0;">New Assignment</h3>
+            <input type="text" id="assign-name" class="modal-input" placeholder="Title (e.g. Lab work 1)">
+
+            <textarea id="assign-desc" class="modal-input" placeholder="Instructions..." rows="5" style="resize: vertical; padding: 10px; font-family: inherit;"></textarea>
+
+            <div style="margin-bottom: 15px;">
+                <label style="font-size: 12px; font-weight: bold; color: #555;">Attach File (Doc, PDF, Img):</label>
+                <input type="file" id="assign-file" style="margin-top: 5px;">
+            </div>
+
+            <div style="font-size:12px; color:#666;">Deadline:</div>
             <input type="datetime-local" id="assign-deadline" class="modal-input">
-            <input type="number" id="assign-score" placeholder="Max Score (e.g. 100)" class="modal-input">
-            <div class="modal-buttons">
-                <button class="btn-cancel" onclick="closeAssignmentModal()">Cancel</button>
-                <button class="btn-save" onclick="createAssignment()">Create</button>
+
+            <input type="number" id="assign-score" class="modal-input" placeholder="Max Score (e.g. 100)">
+
+            <div class="modal-buttons" style="text-align: right; margin-top: 20px;">
+                <button class="btn-cancel" onclick="closeAssignmentModal()" style="padding: 10px 20px; background: #eee; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">Cancel</button>
+                <button class="btn-create" onclick="createAssignment()" style="padding: 10px 20px; background: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer;">Create</button>
             </div>
         </div>
     </div>
 
     <script src="course-details.js"></script>
+    <script src="/chat.js" asp-append-version="true"></script>
 </body>
 </html>
