@@ -15,7 +15,10 @@
             <div class="user-controls">
                 <a href="#" onclick="openModal()" class="icon-btn" title="Create new course">➕</a>
 
-                <a href="javascript:void(0)" onclick="openChatFromNav()" class="icon-btn">💬</a>
+                <a href="javascript:void(0)" onclick="openChatFromNav()" class="icon-btn" style="position: relative;">
+                    💬
+                    <span id="nav-unread-badge" class="global-badge" style="display: none; top: -5px; right: -5px; transform: scale(0.8);">0</span>
+                </a>
 
                 <a href="profile.html" class="profile-circle" id="user-avatar" title="My Profile">U</a>
             </div>

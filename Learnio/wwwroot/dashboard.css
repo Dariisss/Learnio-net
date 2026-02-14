@@ -255,7 +255,7 @@ body {
     margin-right: 20px;
     cursor: pointer;
     transition: transform 0.2s;
-    filter: grayscale(100%); /* Серые по умолчанию */
+   /* filter: grayscale(100%); /* Серые по умолчанию */
     border: none;
     background: none;
 }

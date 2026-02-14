@@ -79,20 +79,29 @@ function renderChatBase(contacts) {
         contactsHtml = `<div class="contacts-list">`;
         contacts.forEach(user => {
             const initials = user.name ? user.name.substring(0, 2).toUpperCase() : "??";
+
+            // ЛОГИКА: Если есть непрочитанные > 0, рисуем красную точку
+            const badgeHtml = user.unreadCount > 0
+                ? `<div class="contact-badge" id="badge-${user.id}"></div>`
+                : `<div class="contact-badge" id="badge-${user.id}" style="display:none;"></div>`;
+
             contactsHtml += `
                 <div class="contact-avatar" 
                      id="contact-bubble-${user.id}"
                      onclick="startChat('${user.id}', '${user.name}')" 
                      title="${user.name}">
                      ${initials}
-                </div>`;
+                     ${badgeHtml} </div>`;
         });
         contactsHtml += `</div>`;
     }
 
     const html = `
     <div id="chat-wrapper">
-        <div class="chat-handle" onclick="toggleChatSidebar()">💬</div>
+        <div class="chat-handle" onclick="toggleChatSidebar()">
+            💬 <div id="global-unread-badge" class="global-badge" style="display:none;">0</div>
+        </div>
+        
         <div class="chat-sidebar">
             <div class="chat-header">
                 <div class="chat-main-title">Messages</div>
@@ -115,6 +124,9 @@ function renderChatBase(contacts) {
         </div>
     </div>`;
     document.body.insertAdjacentHTML("beforeend", html);
+
+    // Сразу после рендера проверяем общее кол-во (на случай если контакты пусты, но непрочитанные есть)
+    updateGlobalCounter();
 }
 
 // Эта функция вызывается при клике
@@ -130,12 +142,10 @@ async function startChat(userId, userName) {
     await openChatWithUser(userId, userName);
 }
 
-// Внутренняя функция (используется и для старта, и для восстановления)
 async function openChatWithUser(userId, userName) {
     currentReceiverId = userId;
     currentReceiverName = userName;
 
-    // 🔥 ЗАПОМИНАЕМ (для F5)
     localStorage.setItem('currentReceiverId', userId);
     localStorage.setItem('currentReceiverName', userName);
 
@@ -157,9 +167,12 @@ async function openChatWithUser(userId, userName) {
     const activeBubble = document.getElementById(`contact-bubble-${userId}`);
     if (activeBubble) activeBubble.classList.add('active');
 
+    // --- НОВОЕ: Помечаем как прочитанное при открытии ---
+    await markMessagesAsRead(userId);
+    // ----------------------------------------------------
+
     await loadHistory(userId);
 }
-
 async function openChatFromNav() {
     localStorage.removeItem('chatClosedFully');
     if (!document.getElementById('chat-wrapper')) await initChatSystem();
@@ -209,14 +222,35 @@ async function initSignalR() {
     connection.on("ReceiveMessage", (senderId, senderName, messageText, time) => {
         const sId = String(senderId).toLowerCase();
         const mId = String(myId).toLowerCase();
-
-        // currentReceiverId может быть null
+        // Текущий открытый чат
         const rId = currentReceiverId ? String(currentReceiverId).toLowerCase() : "";
 
         const isMine = (sId === mId);
 
-        if (rId === sId || isMine) {
-            appendMessageToUI(messageText, time, isMine);
+        // Проверяем, открыт ли чат (expanded)
+        const wrapper = document.getElementById('chat-wrapper');
+        const isChatOpen = wrapper && wrapper.classList.contains('expanded');
+
+        // Сценарий 1: Я отправил или мне прислали в ОТКРЫТЫЙ текущий чат
+        if (isMine || (sId === rId && isChatOpen)) {
+            if (sId === rId || isMine) {
+                appendMessageToUI(messageText, time, isMine);
+            }
+            // Если чат открыт именно с этим человеком, сразу помечаем как прочитанное (опционально)
+            if (!isMine && sId === rId && isChatOpen) {
+                markMessagesAsRead(senderId);
+            }
+        }
+        // Сценарий 2: Пришло сообщение, но чат с этим юзером ЗАКРЫТ (или открыт другой юзер)
+        else {
+            // 1. Включаем точку на контакте
+            const contactBadge = document.getElementById(`badge-${senderId}`);
+            if (contactBadge) contactBadge.style.display = 'block';
+
+            // 2. Обновляем общий счетчик на язычке (+1)
+            updateGlobalCounter();
+
+            // Можно добавить звук уведомления здесь
         }
     });
 
@@ -296,3 +330,53 @@ window.addEventListener('storage', (e) => {
         else if (data.action === 'close_full') { wrapper.classList.remove('expanded'); setTimeout(() => wrapper.style.display = 'none', 300); }
     }
 });
+
+// --- НОВЫЕ ФУНКЦИИ ДЛЯ НЕПРОЧИТАННЫХ ---
+async function updateGlobalCounter() {
+    try {
+        const response = await fetch(`${ROOT_URL}/api/Messages/unread-total/${myId}`);
+        if (response.ok) {
+            const data = await response.json();
+            const total = data.total;
+
+            // 1. Точка на язычке сбоку
+            const sidebarBadge = document.getElementById('global-unread-badge');
+            // 2. Точка в шапке сайта
+            const navBadge = document.getElementById('nav-unread-badge');
+
+            // Текст для бейджика (99+ если много)
+            const countText = total > 99 ? '99+' : total;
+
+            // Обновляем Язычок
+            if (sidebarBadge) {
+                sidebarBadge.innerText = countText;
+                sidebarBadge.style.display = total > 0 ? 'flex' : 'none';
+            }
+
+            // Обновляем Шапку
+            if (navBadge) {
+                navBadge.innerText = countText;
+                // В шапке используем display: flex или block, но у нас в CSS flex
+                navBadge.style.display = total > 0 ? 'flex' : 'none';
+            }
+        }
+    } catch (e) {
+        console.error("Error updating global counter", e);
+    }
+}
+
+// 2. Помечает сообщения как прочитанные (вызывается при открытии чата)
+async function markMessagesAsRead(senderId) {
+    try {
+        await fetch(`${ROOT_URL}/api/Messages/read/${myId}/${senderId}`, { method: 'POST' });
+
+        // Убираем точку с конкретного контакта
+        const contactBadge = document.getElementById(`badge-${senderId}`);
+        if (contactBadge) contactBadge.style.display = 'none';
+
+        // Обновляем общую цифру на язычке
+        await updateGlobalCounter();
+    } catch (e) {
+        console.error("Error marking read", e);
+    }
+}

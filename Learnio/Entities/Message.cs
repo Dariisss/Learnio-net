@@ -18,5 +18,6 @@ namespace Learnio.Entities
         public string ReceiverId { get; set; }
         [ForeignKey("ReceiverId")]
         public AppUser Receiver { get; set; }
+
     }
 }

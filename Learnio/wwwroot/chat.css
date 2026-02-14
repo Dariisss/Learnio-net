@@ -13,15 +13,17 @@
 
 /* 1. ГЛАВНЫЙ КОНТЕЙНЕР (Сайдбар) */
 #chat-wrapper {
-    position: fixed;
-    top: 0;
+    position: absolute;
+    top: 0 !important; /* Принудительно вверх */
+    bottom: 0 !important; /* Принудительно до самого низа */
     right: 0;
-    height: 100vh;
-    z-index: 9999;
-    display: none; /* JS переключит на block */
+    height: 100% !important; /* На всякий случай заменяем vh на % */
+    z-index: 2147483647; /* Максимально возможный z-index, чтобы перекрыть всё */
+    display: none;
     transform: translateX(100%);
     transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     filter: drop-shadow(-5px 0 15px rgba(0,0,0,0.1));
+    margin: 0 !important; /* Убираем любые внешние отступы */
 }
 
     #chat-wrapper.expanded {
@@ -41,7 +43,7 @@
 
 /* 3. ЯЗЫЧОК (Кнопка открытия) */
 .chat-handle {
-    position: absolute;
+    position: absolute; /* ВАЖНО: Должно быть absolute, не relative! */
     left: -50px;
     top: 50%;
     transform: translateY(-50%);
@@ -57,6 +59,7 @@
     font-size: 24px;
     box-shadow: -2px 2px 5px rgba(0,0,0,0.1);
     transition: background 0.2s;
+    /* Убрали position: relative, так как absolute уже работает как якорь */
 }
 
     .chat-handle:hover {
@@ -266,3 +269,83 @@
         background: var(--chat-hover);
         transform: scale(1.1);
     }
+
+/* --- СТИЛИ ДЛЯ КРАСНЫХ ТОЧЕК (УВЕДОМЛЕНИЙ) --- */
+
+/* Специфичный стиль для точки на язычке - двигаем влево */
+.chat-handle .global-badge {
+    right: auto; /* Отключаем позиционирование справа */
+    left: -8px; /* Сдвигаем влево, чтобы она "свисала" с язычка */
+    top: -8px; /* Чуть выше */
+    border: 2px solid white; /* Белая обводка, чтобы выделялось на фоне сайта */
+}
+
+.global-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #ff3b30; /* Красный цвет iOS */
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    height: 20px;
+    min-width: 20px;
+    border-radius: 10px; /* Овал */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    border: 2px solid white; /* Белая обводка для красоты */
+    z-index: 10000;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* 2. Красная точка на аватаре контакта */
+/* Стиль кружочка */
+.contact-avatar {
+    position: relative; /* Добавляем это для красной точки */
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 2px solid #e0e0e0;
+    color: var(--chat-main);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    transition: all 0.2s ease;
+}
+
+.contact-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 14px;
+    height: 14px;
+    background-color: #ff3b30;
+    border-radius: 50%;
+    border: 2px solid white;
+    /* Если хочешь число внутри контакта, убери width/height выше и раскомментируй ниже: */
+    /* min-width: 18px; 
+    height: 18px;
+    font-size: 10px;
+    color: white;
+    display: flex; justify-content: center; align-items: center;
+    */
+}
+
+/* Анимация появления */
+@keyframes popIn {
+    0% {
+        transform: scale(0);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
