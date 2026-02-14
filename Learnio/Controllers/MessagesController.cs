@@ -1,6 +1,5 @@
 ﻿using Learnio.Data;
-using Learnio.Dtos;
-using Learnio.Entities;
+using Microsoft.AspNetCore.Authorization; // <-- Добавь это
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,6 +7,7 @@ namespace Learnio.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [AllowAnonymous] // <--- 🔥 САМОЕ ГЛАВНОЕ: Отключаем проверку токена
     public class MessagesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -17,60 +17,52 @@ namespace Learnio.Controllers
             _context = context;
         }
 
-        // 1. ОТПРАВИТЬ СООБЩЕНИЕ
-        // POST: api/messages
-        [HttpPost]
-        public async Task<IActionResult> SendMessage([FromBody] CreateMessageDto model)
+        // GET: api/Messages/contacts/{userId}
+        [HttpGet("contacts/{userId}")]
+        public async Task<IActionResult> GetContacts(string userId)
         {
-            // Ищем отправителя
-            var sender = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.SenderEmail);
-            if (sender == null) return BadRequest("Отправитель не найден");
+            // Просто верим ID, который пришел с фронтенда
+            if (string.IsNullOrEmpty(userId)) return BadRequest("UserId is required");
 
-            // Ищем получателя
-            var receiver = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.ReceiverEmail);
-            if (receiver == null) return BadRequest("Получатель не найден");
+            // Ищем сообщения без учета регистра
+            var conversations = await _context.Messages
+                .Where(m => m.SenderId == userId || m.ReceiverId == userId)
+                .OrderByDescending(m => m.SentAt)
+                .Select(m => new { m.SenderId, m.ReceiverId })
+                .ToListAsync();
 
-            if (sender.Id == receiver.Id) return BadRequest("Нельзя писать самому себе!");
+            var contactIds = conversations
+                .Select(m => m.SenderId == userId ? m.ReceiverId : m.SenderId)
+                .Distinct()
+                .ToList();
 
-            var message = new Message
-            {
-                Id = Guid.NewGuid(),
-                SenderId = sender.Id,
-                ReceiverId = receiver.Id,
-                Text = model.Text,
-                SentAt = DateTime.UtcNow,
-                IsRead = false
-            };
+            var contacts = await _context.Users
+                .Where(u => contactIds.Contains(u.Id))
+                .Select(u => new
+                {
+                    id = u.Id,
+                    name = u.FirstName + " " + u.LastName
+                })
+                .ToListAsync();
 
-            _context.Messages.Add(message);
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Отправлено!" });
+            return Ok(contacts);
         }
 
-        // 2. ПОЛУЧИТЬ ПЕРЕПИСКУ (ДИАЛОГ)
-        // GET: api/messages/conversation?user1=...&user2=...
-        [HttpGet("conversation")]
-        public async Task<IActionResult> GetConversation(string user1Email, string user2Email)
+        // GET: api/Messages/history/{myId}/{interlocutorId}
+        [HttpGet("history/{myId}/{interlocutorId}")]
+        public async Task<IActionResult> GetHistory(string myId, string interlocutorId)
         {
-            var user1 = await _context.Users.FirstOrDefaultAsync(u => u.Email == user1Email);
-            var user2 = await _context.Users.FirstOrDefaultAsync(u => u.Email == user2Email);
-
-            if (user1 == null || user2 == null) return BadRequest("Один из пользователей не найден");
-
-            // Выбираем сообщения: 
-            // Либо (Отправитель=1 и Получатель=2) 
-            // Либо (Отправитель=2 и Получатель=1)
+            // Тоже просто берем историю по двум ID
             var messages = await _context.Messages
-                .Where(m => (m.SenderId == user1.Id && m.ReceiverId == user2.Id) ||
-                            (m.SenderId == user2.Id && m.ReceiverId == user1.Id))
-                .OrderBy(m => m.SentAt) // Сортируем по времени (старые сверху)
+                .Where(m => (m.SenderId == myId && m.ReceiverId == interlocutorId) ||
+                            (m.SenderId == interlocutorId && m.ReceiverId == myId))
+                .OrderBy(m => m.SentAt)
                 .Select(m => new
                 {
                     m.Id,
-                    SenderName = m.Sender.FirstName + " " + m.Sender.LastName,
                     m.Text,
-                    SentAt = m.SentAt.ToString("yyyy-MM-dd HH:mm")
+                    Time = m.SentAt.ToString("HH:mm"),
+                    IsMine = m.SenderId == myId
                 })
                 .ToListAsync();
 

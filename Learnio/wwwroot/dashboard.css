@@ -380,3 +380,50 @@ body {
     width: 950px !important;
     max-width: 95vw !important;
 }
+
+.people-section {
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.person-card {
+    display: flex;
+    justify-content: space-between; /* Имя слева, кнопка справа */
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.person-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.person-name {
+    font-weight: 500;
+    font-size: 16px;
+}
+
+/* Кнопка сообщения в списке */
+.msg-icon-btn {
+    background: #e8f5e9; /* Светло-зеленый фон */
+    color: #2e7d32;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    transition: transform 0.2s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.msg-icon-btn:hover {
+    transform: scale(1.1);
+    background: #c8e6c9;
+}

@@ -420,28 +420,84 @@ async function renderPeople() {
     const content = document.getElementById('main-content');
     content.innerHTML = `<h3>People 👥</h3><div id="people-list">Loading...</div>`;
 
+    let myIdRaw = localStorage.getItem('userId');
+    const myIdClean = myIdRaw ? String(myIdRaw).toLowerCase() : "";
+
     try {
         const response = await fetch(`${API_URL}/Enrollments/course/${courseId}/students`);
+
         if (response.ok) {
             const students = await response.json();
+
+            // 🔥🔥🔥 СМОТРИ СЮДА В КОНСОЛИ 🔥🔥🔥
+            console.log("🔥 RAW DATA FROM SERVER:", students);
+
             const list = document.getElementById('people-list');
             list.innerHTML = '';
+
+            // --- ДАННЫЕ УЧИТЕЛЯ ---
+            const tName = currentCourseData.teacherName || "Teacher";
+            let tId = currentCourseData.teacherId;
+            if (tId) tId = String(tId).toLowerCase();
+
+            const iAmTeacher = (myIdClean === tId);
+
+            // Кнопка Учителя
+            let teacherChatBtn = '';
+            if (!iAmTeacher && tId) {
+                teacherChatBtn = `<button onclick="startChat('${tId}', '${tName}')" style="background:#e8f5e9; color:#2e7d32; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:20px;">✉️</button>`;
+            }
+
             list.innerHTML += `
-                <div style="padding:15px; border-bottom:1px solid #eee; display:flex; align-items:center;">
-                   <div style="width:40px; height:40px; background:#2e7d32; color:white; border-radius:50%; display:flex; justify-content:center; align-items:center; font-weight:bold; margin-right:15px;">T</div>
-                   <div><div style="font-weight:bold;">${currentCourseData.teacherName || "Teacher"}</div><div style="font-size:12px; color:#888;">Teacher</div></div>
+                <div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content: space-between; align-items:center;">
+                    <div style="display:flex; align-items:center;">
+                        <div style="width:40px; height:40px; background:#2e7d32; color:white; border-radius:50%; display:flex; justify-content:center; align-items:center; font-weight:bold; margin-right:15px;">T</div>
+                        <div><div style="font-weight:bold;">${tName}</div><div style="font-size:12px; color:#888;">Teacher</div></div>
+                    </div>
+                    ${teacherChatBtn}
                 </div>`;
-            if (students.length === 0) { list.innerHTML += '<p style="margin-top:20px; color:#777;">No students joined yet.</p>'; }
-            else {
-                students.forEach(s => {
-                    const avatar = s.avatarUrl ? `<div style="width:40px; height:40px; background-image:url('${s.avatarUrl}'); background-size:cover; border-radius:50%; margin-right:15px;"></div>` : `<div style="width:40px; height:40px; background:#555; color:white; border-radius:50%; display:flex; justify-content:center; align-items:center; font-weight:bold; margin-right:15px;">${s.firstName[0]}</div>`;
-                    list.innerHTML += `<div style="padding:15px; border-bottom:1px solid #eee; display:flex; align-items:center;">${avatar}<div><div style="font-weight:bold;">${s.firstName} ${s.lastName}</div><div style="font-size:12px; color:#888;">Student</div></div></div>`;
+
+            // СТУДЕНТЫ
+            if (students.length === 0) {
+                list.innerHTML += '<p style="margin-top:20px; color:#777;">No students joined yet.</p>';
+            } else {
+                students.forEach((s, index) => {
+                    const sName = `${s.firstName || "Student"} ${s.lastName || ""}`;
+
+                    // 🔥 ПОПЫТКА НАЙТИ ID ВО ВСЕХ ВОЗМОЖНЫХ ПОЛЯХ
+                    // Добавляем сюда appUserId, user_id и т.д.
+                    let rawId = s.id || s.Id || s.studentId || s.StudentId || s.userId || s.UserId || s.appUserId || s.AppUserId;
+
+                    if (!rawId) {
+                        console.error(`⚠️ STUDENT #${index} HAS NO ID FOUND! Keys available:`, Object.keys(s));
+                    }
+
+                    let sId = rawId ? String(rawId).toLowerCase() : "undefined";
+
+                    const avatarHtml = `<div style="width:40px; height:40px; background:#555; color:white; border-radius:50%; display:flex; justify-content:center; align-items:center; font-weight:bold; margin-right:15px;">${sName[0]}</div>`;
+
+                    let studentChatBtn = '';
+
+                    // Рисуем кнопку, если ID валидный
+                    if (iAmTeacher && sId !== "undefined" && sId !== myIdClean) {
+                        studentChatBtn = `<button onclick="startChat('${sId}', '${sName}')" style="background:#e8f5e9; color:#2e7d32; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:20px;">✉️</button>`;
+                    }
+
+                    list.innerHTML += `
+                        <div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content: space-between; align-items:center;">
+                            <div style="display:flex; align-items:center;">
+                                ${avatarHtml}
+                                <div><div style="font-weight:bold;">${sName}</div><div style="font-size:12px; color:#888;">Student</div></div>
+                            </div>
+                            ${studentChatBtn}
+                        </div>`;
                 });
             }
         }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+        console.error(e);
+    }
 }
-
 
 // 6. CREATE ASSIGNMENT (Logic)
 async function createAssignment() {

@@ -1,7 +1,11 @@
 using Learnio.Data;
 using Learnio.Entities;
+using Learnio.Hubs;
+using Microsoft.AspNetCore.Authentication.JwtBearer; // <--- ВАЖНО
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens; // <--- ВАЖНО
+using System.Text;
 using System.Text.Json.Serialization;
 
 namespace Learnio
@@ -12,63 +16,106 @@ namespace Learnio
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
-            // 1. Получаем строку подключения, которую мы только что добавили
+            // 1. База данных
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-            // 2. Говорим программе использовать SQL Server
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(connectionString));
 
-            // 3. Подключаем систему пользователей (Identity)
-            // Настраиваем простые пароли
+            // 2. Identity (Пользователи)
             builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
             {
-                options.Password.RequireDigit = false; // Не требовать цифры
-                options.Password.RequiredLength = 5;   // Минимальная длина - 5 символа
-                options.Password.RequireNonAlphanumeric = false; // Не требовать спецсимволы (!@#)
-                options.Password.RequireUppercase = false; // Не требовать большие буквы
-                options.Password.RequireLowercase = false; // Не требовать маленькие буквы
+                options.Password.RequireDigit = false;
+                options.Password.RequiredLength = 5;
+                options.Password.RequireNonAlphanumeric = false;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireLowercase = false;
             })
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddDefaultTokenProviders();
 
+            // ?? 3. НАСТРОЙКА JWT (ЭТОГО НЕ ХВАТАЛО!) ??
+            var key = Encoding.UTF8.GetBytes("SuperSecretKey12345678901234567890"); // <-- ТВОЙ КЛЮЧ
+
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.SaveToken = true;
+                options.RequireHttpsMetadata = false;
+                options.TokenValidationParameters = new TokenValidationParameters()
+                {
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key)
+                };
+
+                // СПЕЦИАЛЬНО ДЛЯ SIGNALR (Чат)
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
+                };
+            });
+
+            // Контроллеры + JSON
             builder.Services.AddControllers().AddJsonOptions(x =>
                 x.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles);
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
-            // Разрешаем Фронтенду (любому) стучаться к нам
+            // 4. SignalR
+            builder.Services.AddSignalR();
+
+            // 5. CORS
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll", policy =>
                 {
-                    policy.AllowAnyOrigin()   // Разрешить всем (для диплома ок)
-                          .AllowAnyMethod()   // GET, POST, DELETE...
-                          .AllowAnyHeader();  // Любые заголовки
+                    policy.SetIsOriginAllowed(origin => true)
+                          .AllowAnyMethod()
+                          .AllowAnyHeader()
+                          .AllowCredentials(); // Обязательно для SignalR
                 });
             });
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
+            // --- КОНВЕЙЕР ---
+
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
-            app.UseStaticFiles(); // <--- Разрешаем открывать index.html
 
             app.UseHttpsRedirection();
+            app.UseStaticFiles();
 
-            app.UseCors("AllowAll"); // Включаем ту политику, что написали выше
+            app.UseRouting();
 
-            app.UseAuthorization();
+            app.UseCors("AllowAll"); // CORS до авторизации
+
+            app.UseAuthentication(); // 1. Проверяем токен
+            app.UseAuthorization();  // 2. Разрешаем доступ
 
             app.MapControllers();
+            app.MapHub<ChatHub>("/chatHub"); // Подключаем Чат
 
-            app.MapFallbackToFile("index.html"); // Если путь не найден - открывай index.html
+            app.MapFallbackToFile("index.html");
 
             app.Run();
         }
