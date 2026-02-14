@@ -29,36 +29,102 @@ function getCourseGradient(id) {
     return gradients[index];
 }
 
-// 1. ЗАГРУЗКА ИНФО (ОБНОВЛЕНО: ЛОГИКА КНОПКИ SUBMISSIONS)
+// 1. ЗАГРУЗКА ИНФО
 async function loadCourseInfo() {
     try {
-        const response = await fetch(`${API_URL}/Courses`);
-        const courses = await response.json();
-        const course = courses.find(c => c.id === courseId);
+        const response = await fetch(`${API_URL}/Courses/${courseId}`);
+
+        if (!response.ok) {
+            document.getElementById('course-title').innerText = "Course not found";
+            return;
+        }
+
+        const course = await response.json();
 
         if (course) {
             currentCourseData = course;
-            document.getElementById('course-title').innerText = course.name;
 
-            // Находим кнопку Submissions в меню (даже без ID)
-            // Ищем элемент, у которого onclick содержит 'submissions'
+            // Якщо курс в архіві, додамо позначку біля назви
+            const titleSuffix = course.isArchived ? " (ARCHIVED)" : "";
+            document.getElementById('course-title').innerText = course.name + titleSuffix;
+
             const subTab = document.querySelector('.menu-item[onclick*="submissions"]');
-            if (subTab) subTab.style.display = 'none'; // Сначала прячем для всех
+            if (subTab) subTab.style.display = 'none';
 
-            // ПРОВЕРКА УЧИТЕЛЯ
+            // ПЕРЕВІРКА: ЧИ Я ВЧИТЕЛЬ?
             if (String(course.teacherId).toLowerCase() === String(userId).toLowerCase()) {
                 isTeacher = true;
+
                 document.getElementById('btn-add-assignment').style.display = 'block';
                 document.getElementById('teacher-code-area').style.display = 'block';
                 document.getElementById('course-join-code').innerText = course.joinCode || "NO CODE";
-
-                // 👇 ПОКАЗЫВАЕМ ВТАБ SUBMISSIONS ТОЛЬКО УЧИТЕЛЮ 👇
                 if (subTab) subTab.style.display = 'block';
+
+                // 🔥 ЛОГІКА КНОПОК АРХІВУ 🔥
+                const btnArchive = document.getElementById('btn-archive-course');
+                const btnRestore = document.getElementById('btn-unarchive-course');
+
+                if (course.isArchived) {
+                    // Якщо курс В АРХІВІ -> Показуємо "Restore", ховаємо "Archive"
+                    if (btnRestore) btnRestore.style.display = 'block';
+                    if (btnArchive) btnArchive.style.display = 'none';
+                } else {
+                    // Якщо курс АКТИВНИЙ -> Показуємо "Archive", ховаємо "Restore"
+                    if (btnRestore) btnRestore.style.display = 'none';
+                    if (btnArchive) btnArchive.style.display = 'block';
+                }
             }
 
             renderStream();
         }
     } catch (err) { console.error(err); }
+}
+
+// 2. ФУНКЦІЯ АРХІВУВАННЯ
+async function archiveCourse() {
+    if (!confirm("Are you sure you want to archive this course? It will be moved to the 'Completed' tab.")) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/Courses/${courseId}/archive`, {
+            method: 'PUT'
+        });
+
+        if (response.ok) {
+            alert("Course archived!");
+            window.location.href = "dashboard.html";
+        } else {
+            alert("Error archiving course.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Server error.");
+    }
+}
+
+// 2.1. РАЗАРХИВИРОВАТЬ (RESTORE)
+async function unarchiveCourse() {
+    if (!confirm("Restore this course? It will appear in the 'Active' list again.")) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/Courses/${courseId}/unarchive`, {
+            method: 'PUT'
+        });
+
+        if (response.ok) {
+            alert("Course restored!");
+            // Перезавантажуємо сторінку, щоб оновити кнопки
+            location.reload();
+        } else {
+            alert("Error restoring course.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Server error.");
+    }
 }
 
 // 2. ПЕРЕКЛЮЧЕНИЕ ТАБОВ (ИСПРАВЛЕНО 🔥)
@@ -134,7 +200,7 @@ async function renderStream() {
     content.innerHTML = html;
 }
 
-// 4. ASSIGNMENTS LIST (SUBMISSION MODE)
+// 5. ASSIGNMENTS LIST (ОНОВЛЕНО: ФІРМОВА КНОПКА 🔥)
 async function loadAssignments() {
     const content = document.getElementById('main-content');
     content.innerHTML = `<h3>Assignments</h3><div id="list" style="margin-top: 20px;">Loading...</div>`;
@@ -143,48 +209,30 @@ async function loadAssignments() {
     try {
         const response = await fetch(`${API_URL}/Assignments/course/${courseId}`);
         if (!response.ok) { list.innerHTML = 'Error loading data.'; return; }
-
         const tasks = await response.json();
         list.innerHTML = '';
 
-        if (!tasks || tasks.length === 0) {
-            list.innerHTML = '<p style="color:#888;">No assignments yet.</p>';
-            return;
-        }
+        if (!tasks.length) { list.innerHTML = '<p style="color:#888;">No assignments yet.</p>'; return; }
 
         tasks.forEach(task => {
             const taskData = JSON.stringify(task).replace(/"/g, '&quot;');
             const dateStr = new Date(task.deadline).toLocaleDateString();
 
-            const item = document.createElement('div');
-            item.style.borderBottom = "1px solid #eee";
-            item.style.padding = "20px 0";
-            item.style.display = "flex";
-            item.style.justifyContent = "space-between";
-            item.style.alignItems = "center";
+            // 🔥 КНОПКА ДЛЯ ВЧИТЕЛЯ ТАКА Ж ЯК І ДЛЯ СТУДЕНТА (ЗЕЛЕНА)
+            const btnHtml = !isTeacher
+                ? `<button onclick="openTaskView(${taskData}, false)" class="btn-menu-add" style="display:block; width:auto; padding: 10px 20px;">Open</button>`
+                : `<button onclick="openTaskView(${taskData}, true)" class="btn-menu-add" style="display:block; width:auto; padding: 10px 20px;">View</button>`;
 
-            const leftPart = `
-                <div style="display:flex; align-items:center; gap:15px;">
-                    <div style="background:#e8f5e9; color:#2e7d32; width:45px; height:45px; border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:20px;">📝</div>
-                    <div>
-                        <div style="font-weight:bold; font-size:16px;">${task.title}</div>
-                        <div style="font-size:13px; color:#666;">Due: ${dateStr} • ${task.maxScore} pts</div>
+            list.innerHTML += `
+                <div style="border-bottom:1px solid #eee; padding:20px 0; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        <div style="background:#e8f5e9; color:#2e7d32; width:45px; height:45px; border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:20px;">📝</div>
+                        <div><div style="font-weight:bold; font-size:16px;">${task.title}</div><div style="font-size:13px; color:#666;">Due: ${dateStr} • ${task.maxScore} pts</div></div>
                     </div>
-                </div>
-            `;
-
-            // IF STUDENT -> Pass 'false' (CAN SUBMIT)
-            const rightPart = !isTeacher
-                ? `<button onclick="openTaskView(${taskData}, false)" class="btn-menu-add" style="display:block; width:auto; padding: 10px 20px; font-size: 14px;">Open</button>`
-                : `<span style="background:#f1f3f4; padding:5px 10px; border-radius:4px; font-size:12px; color:#555;">Teacher View</span>`;
-
-            item.innerHTML = leftPart + rightPart;
-            list.appendChild(item);
+                    ${btnHtml}
+                </div>`;
         });
-    } catch (e) {
-        console.error(e);
-        if (list) list.innerHTML = 'Error loading list.';
-    }
+    } catch (e) { list.innerHTML = 'Error loading list.'; }
 }
 
 // =======================================================
@@ -418,7 +466,7 @@ function closeAssignmentModal() {
 // 5. PEOPLE
 async function renderPeople() {
     const content = document.getElementById('main-content');
-    content.innerHTML = `<h3>People 👥</h3><div id="people-list">Loading...</div>`;
+    content.innerHTML = `<h3>People </h3><div id="people-list">Loading...</div>`;
 
     let myIdRaw = localStorage.getItem('userId');
     const myIdClean = myIdRaw ? String(myIdRaw).toLowerCase() : "";
@@ -547,103 +595,105 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCourseInfo();
 });
 
-// 8. ВКЛАДКА SUBMISSIONS (ИСПРАВЛЕННАЯ)
+// 10. SUBMISSIONS (ACCORDION + ANIMATION 🔥)
 async function renderSubmissionsTab() {
     const content = document.getElementById('main-content');
     content.innerHTML = `<h3>Incoming Submissions</h3><div id="subs-list">Loading...</div>`;
     const list = document.getElementById('subs-list');
 
     try {
-        // 1. Получаем все задания
         const resAssign = await fetch(`${API_URL}/Assignments/course/${courseId}`);
-        if (!resAssign.ok) throw new Error("Failed to load assignments");
-
+        if (!resAssign.ok) throw new Error("Failed");
         const assignments = await resAssign.json();
         list.innerHTML = '';
 
-        if (assignments.length === 0) {
-            list.innerHTML = '<p style="color:#777;">No assignments yet.</p>';
-            return;
-        }
+        if (assignments.length === 0) { list.innerHTML = '<p>No assignments.</p>'; return; }
 
-        let hasAnyWork = false;
-
-        // 2. Для каждого задания ищем сдачи
         for (const task of assignments) {
-            try {
-                const resSubs = await fetch(`${API_URL}/Submissions/assignment/${task.id}`);
+            // Створюємо блок завдання
+            const taskBlock = document.createElement('div');
+            taskBlock.className = 'submission-accordion-item';
+            taskBlock.style.marginBottom = "10px";
+            taskBlock.style.border = "1px solid #e0e0e0";
+            taskBlock.style.borderRadius = "8px";
+            taskBlock.style.overflow = "hidden";
+            taskBlock.style.background = "white";
 
-                // 🔥 ЗАЩИТА ОТ ОШИБКИ JSON 🔥
-                // Если статус не ОК (например 404), пропускаем
-                if (!resSubs.ok) continue;
+            // Створюємо ЗАГОЛОВОК (Видимий відразу!)
+            const headerDiv = document.createElement('div');
+            headerDiv.style.padding = "15px 20px";
+            headerDiv.style.background = "#f9f9f9";
+            headerDiv.style.cursor = "pointer";
+            headerDiv.style.display = "flex";
+            headerDiv.style.justifyContent = "space-between";
+            headerDiv.style.alignItems = "center";
+            headerDiv.style.fontWeight = "bold";
+            // Текст загрузки
+            headerDiv.innerHTML = `<span>${task.title}</span><span style="font-size:12px; color:#777; font-weight:normal;">Loading...</span>`;
 
-                // Проверяем, точно ли пришли данные (JSON), а не HTML ошибка
-                const contentType = resSubs.headers.get("content-type");
-                if (!contentType || !contentType.includes("application/json")) {
-                    console.warn(`Server returned non-JSON for assignment ${task.id}`);
-                    continue;
+            // Створюємо ТІЛО (Сховане, зі скролом)
+            const bodyDiv = document.createElement('div');
+            bodyDiv.id = `subs-body-${task.id}`;
+            bodyDiv.className = 'submission-body';
+            bodyDiv.style.display = "none";
+            bodyDiv.style.borderTop = "1px solid #eee";
+            bodyDiv.style.maxHeight = "400px";
+            bodyDiv.style.overflowY = "auto";
+
+            // КЛІК ПО ЗАГОЛОВКУ (Гармошка + Анімація стрілки)
+            headerDiv.onclick = () => {
+                const isClosed = bodyDiv.style.display === "none";
+
+                // Закриваємо всі тіла
+                document.querySelectorAll('.submission-body').forEach(el => el.style.display = 'none');
+
+                // Скидаємо всі стрілки в 0
+                document.querySelectorAll('.sub-arrow').forEach(el => el.style.transform = 'rotate(0deg)');
+
+                // Відкриваємо поточний
+                if (isClosed) {
+                    bodyDiv.style.display = "block";
+                    const arrow = headerDiv.querySelector('.sub-arrow');
+                    if (arrow) arrow.style.transform = 'rotate(180deg)';
                 }
+            };
 
-                const submissions = await resSubs.json();
+            taskBlock.appendChild(headerDiv);
+            taskBlock.appendChild(bodyDiv);
+            list.appendChild(taskBlock);
 
-                // 3. РИСУЕМ ТОЛЬКО ЕСЛИ ЕСТЬ СДАЧИ
-                if (submissions && submissions.length > 0) {
-                    hasAnyWork = true;
+            // Підвантажуємо дані
+            fetch(`${API_URL}/Submissions/assignment/${task.id}`)
+                .then(r => r.ok ? r.json() : [])
+                .then(submissions => {
+                    // 🔥 ОНОВЛЕННЯ ЗАГОЛОВКУ ЗІ СТРІЛОЧКОЮ І АНІМАЦІЄЮ
+                    headerDiv.innerHTML = `
+                        <span>${task.title}</span>
+                        <span style="font-weight:normal; font-size:12px; color:#777; background:#eee; padding:2px 8px; border-radius:10px; display:inline-flex; align-items:center; gap:5px;">
+                            ${submissions.length} submissions 
+                            <span class="sub-arrow" style="display:inline-block; transition:transform 0.3s ease;">▼</span>
+                        </span>`;
 
-                    const studentsHtml = submissions.map(sub => `
-                        <div style="padding: 15px; border-top: 1px solid #f0f0f0; display:flex; justify-content:space-between; align-items:center;">
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <div style="width:30px; height:30px; background:#ccc; border-radius:50%; color:white; display:flex; justify-content:center; align-items:center; font-size:12px; font-weight:bold;">
-                                    ${sub.studentName ? sub.studentName[0] : 'S'}
+                    // Наповнюємо тіло
+                    if (submissions.length > 0) {
+                        bodyDiv.innerHTML = submissions.map(sub => `
+                            <div style="padding:15px; border-bottom:1px solid #f0f0f0; display:flex; justify-content:space-between; align-items:center;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <div style="width:30px; height:30px; background:#ccc; border-radius:50%; color:white; display:flex; justify-content:center; align-items:center; font-size:12px;">${sub.studentName[0]}</div>
+                                    <div><div style="font-weight:bold; font-size:14px;">${sub.studentName}</div><div style="font-size:11px; color:#888;">${new Date(sub.submissionDate).toLocaleString()}</div></div>
                                 </div>
-                                <div>
-                                    <div style="font-weight:bold; font-size:14px;">${sub.studentName || 'Unknown Student'}</div>
-                                    <div style="font-size:11px; color:#888;">${new Date(sub.submissionDate).toLocaleString()}</div>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    ${sub.grade ? `<span style="background:#e8f5e9; color:#2e7d32; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${sub.grade}</span>` : `<span style="background:#fff3e0; color:#ef6c00; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold;">New</span>`}
+                                    <button onclick="openGradingModal(${JSON.stringify(sub).replace(/"/g, '&quot;')}, ${JSON.stringify(task).replace(/"/g, '&quot;')})" style="border:1px solid #2e7d32; background:white; color:#2e7d32; padding:5px 12px; border-radius:4px; cursor:pointer; font-size:12px;">Open</button>
                                 </div>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:15px;">
-                                ${sub.grade
-                            ? `<span style="background:#e8f5e9; color:#2e7d32; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold;">Graded: ${sub.grade}</span>`
-                            : `<span style="background:#fff3e0; color:#ef6c00; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold;">Needs Grading</span>`
-                        }
-                                <button onclick="openGradingModal(${JSON.stringify(sub).replace(/"/g, '&quot;')}, ${JSON.stringify(task).replace(/"/g, '&quot;')})" 
-                                        style="border:1px solid #2e7d32; background:white; color:#2e7d32; padding:5px 15px; border-radius:4px; cursor:pointer; font-size:12px;">
-                                    Open
-                                </button>
-                            </div>
-                        </div>
-                    `).join('');
-
-                    const taskBlock = document.createElement('div');
-                    taskBlock.style.marginBottom = "30px";
-                    taskBlock.style.background = "white";
-                    taskBlock.style.border = "1px solid #e0e0e0";
-                    taskBlock.style.borderRadius = "8px";
-                    taskBlock.style.overflow = "hidden";
-
-                    taskBlock.innerHTML = `
-                        <div style="padding:15px 20px; background:#f9f9f9; border-bottom:1px solid #eee; font-weight:bold; color:#333;">
-                            ${task.title} <span style="font-weight:normal; color:#777; font-size:12px; margin-left:10px;">(${submissions.length} submissions)</span>
-                        </div>
-                        ${studentsHtml}
-                    `;
-                    list.appendChild(taskBlock);
-                }
-            } catch (innerError) {
-                console.error(`Error loading submissions for task ${task.id}`, innerError);
-            }
+                            </div>`).join('');
+                    } else {
+                        bodyDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#999;">No submissions yet.</div>`;
+                    }
+                });
         }
-
-        if (!hasAnyWork) {
-            list.innerHTML = `<div style="text-align:center; padding:40px; color:#888;">No submissions received yet.</div>`;
-        }
-
-    } catch (e) {
-        console.error(e);
-        list.innerHTML = "Error loading data. Check console.";
-    }
+    } catch (e) { list.innerHTML = "Error loading."; }
 }
-
 function openGradingModal(sub, task) {
     const modal = document.getElementById('assignment-modal');
     const contentBox = modal.querySelector('.modal-content');

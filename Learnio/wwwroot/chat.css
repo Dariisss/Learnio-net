@@ -1,256 +1,226 @@
-﻿:root {
-    --chat-green: #2e7d32;
-    --chat-green-hover: #1b5e20;
-    --chat-bg-white: #ffffff;
-    --chat-bg-light: #f5f5f5;
-    --chat-msg-outgoing: #e8f5e9;
-    --chat-border: #ddd;
+﻿/* chat.css - Clean & Modern Style */
+
+:root {
+    --chat-main: #2e7d32; /* Основной зеленый */
+    --chat-hover: #1b5e20; /* Темно-зеленый (ховер) */
+    --chat-bg: #ffffff; /* Белый фон */
+    --chat-bg-gray: #f2f2f2; /* Светло-серый фон сообщений */
+    --chat-outgoing: #e8f5e9; /* Фон моих сообщений */
+    --chat-border: #e0e0e0; /* Цвет границ */
+    --chat-text: #333333; /* Основной текст */
+    --chat-shadow: 0 5px 25px rgba(0,0,0,0.15);
 }
 
-/* =========================================
-   ГЛАВНЫЙ КОНТЕЙНЕР (ЛОГИКА ВЫЕЗДА)
-   ========================================= */
-/* Мы используем Wrapper, чтобы "Язычок" был приклеен к чату 
-   и выезжал вместе с ним.
-*/
+/* 1. ГЛАВНЫЙ КОНТЕЙНЕР (Сайдбар) */
 #chat-wrapper {
     position: fixed;
     top: 0;
     right: 0;
     height: 100vh;
     z-index: 9999;
-    /* Скрыт полностью (display: none), пока JS не включит его */
-    display: none;
-    /* Анимация выезда */
-    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    /* По умолчанию сдвинут вправо за экран (на 100%) */
+    display: none; /* JS переключит на block */
     transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    filter: drop-shadow(-5px 0 15px rgba(0,0,0,0.1));
 }
 
-    /* Класс, который добавляет JS, чтобы чат выехал */
     #chat-wrapper.expanded {
         transform: translateX(0);
     }
 
-/* =========================================
-   САМ САЙДБАР (БЕЛЫЙ БЛОК)
-   ========================================= */
+/* 2. ТЕЛО ЧАТА */
 .chat-sidebar {
-    width: 400px;
+    width: 380px;
     height: 100%;
-    background: var(--chat-bg-white);
-    box-shadow: -5px 0 20px rgba(0,0,0,0.15);
+    background: var(--chat-bg);
     display: flex;
     flex-direction: column;
     font-family: 'Segoe UI', sans-serif;
     border-left: 1px solid var(--chat-border);
-    position: relative; /* Чтобы внутри позиционировать элементы */
 }
 
-/* =========================================
-   ЯЗЫЧОК (HANDLE)
-   ========================================= */
+/* 3. ЯЗЫЧОК (Кнопка открытия) */
 .chat-handle {
     position: absolute;
-    left: -50px; /* Выносим влево от сайдбара на ширину язычка */
+    left: -50px;
     top: 50%;
     transform: translateY(-50%);
     width: 50px;
     height: 60px;
-    background: var(--chat-green);
+    background: var(--chat-main);
     color: white;
     border-radius: 10px 0 0 10px;
     cursor: pointer;
-    box-shadow: -2px 2px 5px rgba(0,0,0,0.2);
-    /* Центрирование иконки */
     display: flex;
     justify-content: center;
     align-items: center;
     font-size: 24px;
+    box-shadow: -2px 2px 5px rgba(0,0,0,0.1);
+    transition: background 0.2s;
 }
 
     .chat-handle:hover {
-        background: var(--chat-green-hover);
+        background: var(--chat-hover);
     }
 
-/* =========================================
-   ШАПКА ЧАТА
-   ========================================= */
+/* 4. ШАПКА (Теперь белая и легкая) */
 .chat-header {
-    background: var(--chat-green);
-    color: white;
-    padding: 20px;
+    background: #aaffac38;
+    padding: 15px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-shrink: 0; /* Чтобы шапка не сжималась */
+    border-bottom: 1px solid #aaffac;
+    flex-shrink: 0;
 }
 
 .chat-main-title {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    color: var(--chat-main); /* Зеленый заголовок */
 }
 
 .close-btn {
     cursor: pointer;
     font-size: 24px;
-    opacity: 0.8;
-    transition: transform 0.2s;
+    color: #999;
+    transition: all 0.2s;
 }
 
     .close-btn:hover {
-        opacity: 1;
-        transform: scale(1.1) rotate(90deg);
+        color: var(--chat-text);
+        transform: rotate(90deg);
     }
 
-/* =========================================
-   СПИСОК КОНТАКТОВ (АВАТАРКИ) - НОВОЕ
-   ========================================= */
+/* 5. СПИСОК КОНТАКТОВ (Кружочки) */
 .contacts-list {
     display: flex;
-    padding: 15px;
+    padding: 15px 20px;
     gap: 12px;
-    overflow-x: auto; /* Если контактов много, можно листать */
-    background: #f9f9f9; /* Чуть темнее белого, чтобы выделить зону */
-    border-bottom: 1px solid #eee;
+    overflow-x: auto;
+    background: #aaffac38;
+    border-bottom: 1px solid #aaffac;
     flex-shrink: 0;
+    /* Скрываем скроллбар */
+    scrollbar-width: none;
 }
 
-    /* Скрываем скроллбар для красоты (Chrome/Safari) */
     .contacts-list::-webkit-scrollbar {
-        height: 6px;
+        display: none;
     }
 
-    .contacts-list::-webkit-scrollbar-thumb {
-        background: rgba(0,0,0,0.2);
-        border-radius: 3px;
-    }
-
-/* Кружочек контакта */
+/* Стиль кружочка */
 .contact-avatar {
-    width: 45px;
-    height: 45px;
-    min-width: 45px;
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
     border-radius: 50%;
-    background: white;
-    border: 2px solid #ddd; /* Серый бортик по умолчанию */
-    color: #555;
+    background: #ffffff;
+    border: 2px solid #e0e0e0; /* Серый бортик */
+    color: var(--chat-main); /* Зеленые буквы */
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: bold;
-    font-size: 14px;
-    transition: all 0.2s;
+    font-weight: 700;
+    font-size: 16px;
+    transition: all 0.2s ease;
 }
 
     .contact-avatar:hover {
-        border-color: #2e7d32;
-        color: #2e7d32;
+        border-color: var(--chat-main);
+        transform: translateY(-2px);
     }
 
-    /* Когда выбрали собеседника - кружок становится зеленым */
+    /* АКТИВНЫЙ КРУЖОЧЕК (Выбранный) */
     .contact-avatar.active {
-        background: #2e7d32;
+        background: var(--chat-main);
         color: white;
-        border-color: #2e7d32;
-        transform: scale(1.1); /* Чуть увеличиваем */
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        border-color: var(--chat-main);
+        /* Легкое белое свечение вокруг */
+        box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.2);
+        transform: scale(1.05);
     }
 
-/* =========================================
-   ИМЯ СОБЕСЕДНИКА + АВАТАРКА (ВНУТРИ ЧАТА)
-   ========================================= */
-/* --- ЗОНА 2: ШАПКА СОБЕСЕДНИКА (Jack Hardy) --- */
+/* 6. ПАНЕЛЬ СОБЕСЕДНИКА (Внутри чата) */
 .chat-recipient-bar {
-    background: #fff; /* Белый фон, чтобы отличался от списка сверху */
+    background: #fafafa;
     padding: 10px 20px;
-    border-bottom: 1px solid #ddd;
-    display: none; /* Скрыто, пока не кликнем */
-
+    border-bottom: 1px solid var(--chat-border);
+    display: none; /* Скрыто по умолчанию */
     align-items: center;
-    gap: 12px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05); /* Легкая тень вниз */
-    z-index: 10;
+    gap: 10px;
 }
 
-/* Аватарка внутри шапки собеседника */
 .recipient-avatar-small {
-    width: 36px;
-    height: 36px;
-    background: #2e7d32;
+    width: 32px;
+    height: 32px;
+    background: var(--chat-main);
     color: white;
     border-radius: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: bold;
 }
 
 .chat-recipient-name {
-    font-size: 16px;
-    font-weight: 700;
-    color: #333;
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--chat-text);
 }
 
-#chat-recipient-text {
-    color: var(--chat-green); /* Зеленый текст */
-    font-weight: 700;
-    font-size: 16px;
-}
-
-/* =========================================
-   ТЕЛО СООБЩЕНИЙ
-   ========================================= */
+/* 7. ОКНО СООБЩЕНИЙ */
 .chat-body {
     flex-grow: 1;
     padding: 20px;
     overflow-y: auto;
-    background: var(--chat-bg-light);
+    background: var(--chat-bg-gray); /* Серый фон как в мессенджерах */
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 10px;
 }
 
+/* Сообщения */
 .message {
-    max-width: 80%;
-    padding: 12px 16px;
+    max-width: 75%;
+    padding: 10px 14px;
     border-radius: 12px;
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.4;
     position: relative;
     word-wrap: break-word;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
 
+    /* Входящие (Белые, слева) */
     .message.incoming {
         align-self: flex-start;
         background: white;
-        color: #333;
+        color: var(--chat-text);
         border-bottom-left-radius: 2px;
     }
 
+    /* Исходящие (Зеленые, справа) */
     .message.outgoing {
         align-self: flex-end;
-        background: var(--chat-msg-outgoing);
-        color: var(--chat-green-hover);
+        background: var(--chat-outgoing);
+        color: var(--chat-text);
         border-bottom-right-radius: 2px;
+        border: 1px solid #c8e6c9;
     }
 
 .msg-time {
     font-size: 10px;
-    opacity: 0.6;
+    color: #888;
     text-align: right;
     margin-top: 4px;
 }
 
-/* =========================================
-   ФУТЕР (ВВОД)
-   ========================================= */
+/* 8. ПОДВАЛ (Ввод текста) */
 .chat-footer {
-    padding: 15px 20px;
+    padding: 15px;
     background: white;
     border-top: 1px solid var(--chat-border);
     display: flex;
@@ -260,43 +230,39 @@
 
 #chat-input {
     flex-grow: 1;
-    padding: 12px 18px;
-    border: 1px solid #ccc;
-    border-radius: 25px;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
     outline: none;
-    height: 46px; /* Фикс высоты */
     font-family: inherit;
-    font-size: 15px;
-    transition: border-color 0.2s;
+    font-size: 14px;
+    background: #f9f9f9;
+    resize: none;
+    height: 40px;
 }
 
     #chat-input:focus {
-        border-color: var(--chat-green);
-        box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.1);
+        background: white;
+        border-color: var(--chat-main);
     }
 
-/* КНОПКА ОТПРАВКИ */
+/* Кнопка отправки */
 #chat-send-btn {
-    background: #2e7d32; /* Твой зеленый */
+    background: var(--chat-main);
     color: white;
     border: none;
-    width: 45px; /* Фиксированный размер */
-    height: 45px;
-    border-radius: 50%; /* Делает круг */
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
     cursor: pointer;
-    /* Центрируем стрелочку */
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 18px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    transition: transform 0.2s, background 0.2s;
-    /* Убираем стандартные стили браузера */
-    appearance: none;
-    -webkit-appearance: none;
+    font-size: 16px;
+    transition: transform 0.2s;
 }
 
     #chat-send-btn:hover {
-        background: #1b5e20; /* Темно-зеленый при наведении */
+        background: var(--chat-hover);
         transform: scale(1.1);
     }

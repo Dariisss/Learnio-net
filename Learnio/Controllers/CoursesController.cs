@@ -17,17 +17,15 @@ namespace Learnio.Controllers
             _context = context;
         }
 
-        // 1. СОЗДАТЬ КУРС (Правильный метод)
+        // 1. СОЗДАТЬ КУРС
         [HttpPost]
         public async Task<IActionResult> CreateCourse([FromBody] CreateCourseDto model)
         {
-            // Проверка: прислали ли нам ID учителя?
             if (string.IsNullOrEmpty(model.TeacherId))
             {
                 return BadRequest("TeacherId is required!");
             }
 
-            // Проверка: существует ли такой учитель в базе?
             var teacher = await _context.Users.FindAsync(model.TeacherId);
             if (teacher == null)
             {
@@ -40,12 +38,9 @@ namespace Learnio.Controllers
                 Name = model.Name,
                 Description = model.Description,
                 CreatedAt = DateTime.UtcNow,
-
-                // ВАЖНО: Берем ID именно из модели (от сайта), а не первого попавшегося
                 TeacherId = model.TeacherId,
-
-                // Генерируем код (6 символов)
-                JoinCode = GenerateRandomCode()
+                JoinCode = GenerateRandomCode(),
+                IsArchived = false // За замовчуванням курс активний
             };
 
             _context.Courses.Add(course);
@@ -54,26 +49,60 @@ namespace Learnio.Controllers
             return Ok(course);
         }
 
-        // 2. ПОЛУЧИТЬ КУРСЫ (С ФИЛЬТРАЦИЕЙ)
-        // GET: api/Courses?userId=...
+        // 2. ПОЛУЧИТЬ КУРСЫ (С ФИЛЬТРАЦИЕЙ И ПОИСКОМ)
+        // GET: api/Courses?userId=...&filter=...&search=...
         [HttpGet]
-        public async Task<IActionResult> GetCourses([FromQuery] string? userId)
+        public async Task<IActionResult> GetCourses(
+            [FromQuery] string userId,
+            [FromQuery] string? filter = "all",
+            [FromQuery] string? search = "")
         {
-            // Начинаем запрос к базе
+            if (string.IsNullOrEmpty(userId)) return BadRequest("UserId is required");
+
+            // 1. Початковий запит (підтягуємо вчителя і студентів, щоб перевірити участь)
             var query = _context.Courses
                 .Include(c => c.Teacher)
+                .Include(c => c.Enrollments)
                 .AsQueryable();
 
-            // Если передали ID пользователя - включаем фильтр
-            if (!string.IsNullOrEmpty(userId))
+            // 2. ПОШУК (Search)
+            if (!string.IsNullOrWhiteSpace(search))
             {
-                query = query.Where(c =>
-                    c.TeacherId == userId || // 1. Я - Учитель этого курса
-                    c.Enrollments.Any(e => e.StudentId == userId) // 2. ИЛИ Я - Студент (есть запись в Enrollments)
-                );
+                search = search.ToLower().Trim();
+                query = query.Where(c => c.Name.ToLower().Contains(search) ||
+                                         (c.Description != null && c.Description.ToLower().Contains(search)));
             }
 
-            // Превращаем данные в красивый вид для сайта
+            // 3. ФІЛЬТРАЦІЯ (Filter)
+            switch (filter?.ToLower())
+            {
+                case "teaching":
+                    // Тільки де я вчитель І курс НЕ в архіві
+                    query = query.Where(c => c.TeacherId == userId && !c.IsArchived);
+                    break;
+
+                case "enrolled":
+                    // Тільки де я студент І курс НЕ в архіві
+                    query = query.Where(c => c.Enrollments.Any(e => e.StudentId == userId) && !c.IsArchived);
+                    break;
+
+                case "archived":
+                case "completed": // На всяк випадок обидва варіанти
+                    // Тільки АРХІВНІ курси (байдуже, вчитель я там чи студент)
+                    query = query.Where(c => (c.TeacherId == userId || c.Enrollments.Any(e => e.StudentId == userId)) && c.IsArchived);
+                    break;
+
+                case "all":
+                default:
+                    // Всі АКТИВНІ курси (де я вчитель АБО студент)
+                    query = query.Where(c => (c.TeacherId == userId || c.Enrollments.Any(e => e.StudentId == userId)) && !c.IsArchived);
+                    break;
+            }
+
+            // 4. Сортування: Спочатку нові
+            query = query.OrderByDescending(c => c.CreatedAt);
+
+            // 5. Вибірка даних (важливо повернути IsArchived, щоб фронт знав)
             var courses = await query
                 .Select(c => new
                 {
@@ -82,11 +111,65 @@ namespace Learnio.Controllers
                     c.Description,
                     c.TeacherId,
                     c.JoinCode,
+                    c.IsArchived, // <--- Важливо
                     TeacherName = c.Teacher == null ? "Unknown" : c.Teacher.FirstName + " " + c.Teacher.LastName
                 })
                 .ToListAsync();
 
             return Ok(courses);
+        }
+
+        // 3. АРХІВУВАТИ КУРС
+        // PUT: api/Courses/{id}/archive
+        [HttpPut("{id}/archive")]
+        public async Task<IActionResult> ArchiveCourse(Guid id)
+        {
+            var course = await _context.Courses.FindAsync(id);
+            if (course == null) return NotFound("Course not found");
+
+            // Тільки вчитель може архівувати (у майбутньому можна додати перевірку)
+            course.IsArchived = true;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Course archived successfully" });
+        }
+
+        // GET: api/Courses/{id}
+        // Це для course-details.js - отримати один конкретний курс
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetCourse(Guid id)
+        {
+            var course = await _context.Courses
+                .Include(c => c.Teacher)
+                .FirstOrDefaultAsync(c => c.Id == id);
+
+            if (course == null) return NotFound();
+
+            return Ok(new
+            {
+                course.Id,
+                course.Name,
+                course.Description,
+                course.TeacherId,
+                course.JoinCode,
+                course.IsArchived, // Повертаємо статус
+                TeacherName = course.Teacher == null ? "Unknown" : course.Teacher.FirstName + " " + course.Teacher.LastName
+            });
+        }
+
+        // 4. РАЗАРХИВИРОВАТЬ КУРС (RESTORE)
+        // PUT: api/Courses/{id}/unarchive
+        [HttpPut("{id}/unarchive")]
+        public async Task<IActionResult> UnarchiveCourse(Guid id)
+        {
+            var course = await _context.Courses.FindAsync(id);
+            if (course == null) return NotFound("Course not found");
+
+            // Повертаємо курс до життя
+            course.IsArchived = false;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Course restored successfully" });
         }
 
         // Вспомогательный метод для генерации кода

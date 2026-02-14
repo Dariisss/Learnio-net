@@ -22,13 +22,14 @@
         </div>
 
         <div class="filters-bar">
-            <select class="filter-select" style="width: 150px;">
-                <option value="all">All</option>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
+            <select id="course-filter" class="filter-select" style="width: 150px;">
+                <option value="all">All Courses</option>
+                <option value="teaching">Teaching 🎓</option>
+                <option value="enrolled">Enrolled 📚</option>
+                <option value="archived">Archived 🗄️</option>
             </select>
 
-            <input type="text" class="search-input" placeholder="Search courses...">
+            <input type="text" id="course-search" class="search-input" placeholder="Search courses...">
 
             <div class="join-wrapper">
                 <input type="text" id="join-code-input" class="search-input join-input" placeholder="Enter code...">

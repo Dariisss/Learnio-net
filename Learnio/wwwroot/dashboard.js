@@ -45,16 +45,32 @@ async function loadUserAvatar() {
 // 2. ЗАГРУЗКА КУРСОВ
 async function loadCourses() {
     const container = document.getElementById('courses-container');
+    const userId = localStorage.getItem('userId');
+
+    // 1. Шукаємо елементи
+    const filterEl = document.getElementById('course-filter');
+    const searchEl = document.getElementById('course-search');
+
+    // 2. Читаємо значення. Якщо елементів немає - ставимо дефолт.
+    const filterValue = filterEl ? filterEl.value : 'all';
+    const searchValue = searchEl ? searchEl.value : '';
+
+    console.log(`🔍 Loading courses: filter=${filterValue}, search=${searchValue}`); // Для перевірки в консолі
+
+    container.innerHTML = '<p style="text-align:center; color:#888;">Loading...</p>';
+
     try {
-        // Передаем userId в запрос, чтобы сервер отфильтровал лишнее
-        const response = await fetch(`${API_URL}/Courses?userId=${localStorage.getItem('userId')}`);
+        // Формуємо URL
+        const url = `${API_URL}/Courses?userId=${userId}&filter=${filterValue}&search=${encodeURIComponent(searchValue)}`;
+
+        const response = await fetch(url);
         if (!response.ok) return;
 
         const courses = await response.json();
         container.innerHTML = '';
 
         if (courses.length === 0) {
-            container.innerHTML = '<p>No courses found. Create one + or join by code</p>';
+            container.innerHTML = '<p style="text-align:center; margin-top:20px; color:#777;">No courses found.</p>';
             return;
         }
 
@@ -63,9 +79,15 @@ async function loadCourses() {
             card.className = 'course-card';
             const bgStyle = getCourseGradient(course.id);
 
+            // Якщо курс архівний (наприклад, фільтр "all" його не покаже, але про всяк випадок)
+            const badge = course.isArchived
+                ? '<span style="background:rgba(0,0,0,0.5); padding:2px 6px; border-radius:4px; font-size:10px; margin-bottom:5px; color:white;">ARCHIVED</span>'
+                : '';
+
             card.innerHTML = `
-                <div class="course-image" style="background: ${bgStyle}; display:flex; align-items:flex-end; padding:15px;">
-                    <h2 style="color:white; margin:0; text-shadow:0 2px 5px rgba(0,0,0,0.2);">${course.name}</h2>
+                <div class="course-image" style="background: ${bgStyle}; display:flex; flex-direction:column; justify-content:flex-end; padding:15px; align-items:flex-start;">
+                    ${badge}
+                    <h2 style="color:white; margin:0; text-shadow:0 2px 5px rgba(0,0,0,0.2); word-break: break-word;">${course.name}</h2>
                 </div>
                 <div class="course-body">
                     <div class="course-desc">
@@ -158,4 +180,25 @@ async function createCourse() {
 }
 
 loadUserAvatar();
-loadCourses();
+// Ініціалізація подій (Встав це в кінець файлу dashboard.js)
+document.addEventListener('DOMContentLoaded', () => {
+    loadUserAvatar();
+    loadCourses(); // Перше завантаження
+
+    const filterSelect = document.getElementById('course-filter');
+    const searchInput = document.getElementById('course-search');
+
+    // Якщо змінили вибір у списку - перезавантажуємо курси
+    if (filterSelect) {
+        filterSelect.addEventListener('change', loadCourses);
+    }
+
+    // Якщо друкуємо в пошуку - теж перезавантажуємо (з затримкою)
+    if (searchInput) {
+        let timeout = null;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(loadCourses, 300);
+        });
+    }
+});
