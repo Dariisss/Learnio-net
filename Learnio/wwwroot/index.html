@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In - Learnio</title>
-
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="login.css">
 </head>
 <body>
@@ -14,7 +14,12 @@
         <h3>Sign in to your account</h3>
 
         <input type="email" id="email" placeholder="Email (e.g., student@test.com)">
-        <input type="password" id="password" placeholder="Password">
+        <div class="password-container" style="position: relative; width: 100%;">
+            <input type="password" id="password" placeholder="Password" style="width: 100%; padding-right: 40px;">
+            <i class="fa-solid fa-eye" id="togglePassword"
+               style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #888;">
+            </i>
+        </div>
 
         <button onclick="login()">Sign In</button>
 

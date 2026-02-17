@@ -38,6 +38,7 @@ namespace Learnio.Controllers
                 {
                     id = u.Id,
                     name = u.FirstName + " " + u.LastName,
+                    avatarUrl = u.AvatarUrl,
                     // Рахуємо повідомлення, де відправник - контакт, отримувач - я, і вони не прочитані
                     unreadCount = _context.Messages.Count(m => m.SenderId == u.Id && m.ReceiverId == userId && !m.IsRead)
                 })

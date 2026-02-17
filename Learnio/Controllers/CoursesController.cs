@@ -112,7 +112,9 @@ namespace Learnio.Controllers
                     c.TeacherId,
                     c.JoinCode,
                     c.IsArchived, // <--- Важливо
-                    TeacherName = c.Teacher == null ? "Unknown" : c.Teacher.FirstName + " " + c.Teacher.LastName
+                    TeacherName = c.Teacher == null ? "Unknown" : c.Teacher.FirstName + " " + c.Teacher.LastName,
+                    // 🔥 ВСТАВИТЬ СЮДА
+                    TeacherAvatarUrl = c.Teacher.AvatarUrl
                 })
                 .ToListAsync();
 
@@ -153,7 +155,9 @@ namespace Learnio.Controllers
                 course.TeacherId,
                 course.JoinCode,
                 course.IsArchived, // Повертаємо статус
-                TeacherName = course.Teacher == null ? "Unknown" : course.Teacher.FirstName + " " + course.Teacher.LastName
+                TeacherName = course.Teacher == null ? "Unknown" : course.Teacher.FirstName + " " + course.Teacher.LastName,
+                // 🔥 ВСТАВИТЬ СЮДА (обратите внимание: тут переменная course, а не c)
+                TeacherAvatarUrl = course.Teacher != null ? course.Teacher.AvatarUrl : null
             });
         }
 

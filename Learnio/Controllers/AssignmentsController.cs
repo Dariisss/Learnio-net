@@ -61,7 +61,8 @@ namespace Learnio.Controllers
                 Description = model.Description,
                 Deadline = model.Deadline,
                 MaxScore = model.MaxScore,
-                AttachmentUrl = filePath
+                AttachmentUrl = filePath,
+                CreatedAt = DateTime.UtcNow // 🔥 ЯВНО ЗАПИСЫВАЕМ ВРЕМЯ СОЗДАНИЯ
             };
 
             _context.Assignments.Add(assignment);

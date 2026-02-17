@@ -12,10 +12,9 @@ if (!courseId) window.location.href = "dashboard.html";
 let isTeacher = false;
 let currentCourseData = null;
 
-// Gradients for header
 const gradients = [
     "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
-    "linear-gradient(135deg, #c3cfe2 0%, #c3cfe2 100%)",
+    "linear-gradient(135deg, #ee9ca7 0%, #ffdde1 100%)",
     "linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)",
     "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
     "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
@@ -27,6 +26,20 @@ function getCourseGradient(id) {
     if (!id) return gradients[0];
     const index = id.charCodeAt(0) % gradients.length;
     return gradients[index];
+}
+
+// 🔥 ФОРМАТТЕР ДАТЫ (ВСЕГДА КИЕВ)
+function formatKyivDate(isoDateString) {
+    if (!isoDateString) return "";
+    const date = new Date(isoDateString);
+    return date.toLocaleString('uk-UA', {
+        timeZone: 'Europe/Kyiv', // 👈 ЖЕСТКО ЗАДАЕМ КИЕВ
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 }
 
 // 1. ЗАГРУЗКА ИНФО
@@ -176,8 +189,22 @@ async function renderStream() {
                         <h3>🎉 No assignments yet!</h3>
                     </div>`;
             } else {
-                tasks.reverse().forEach(task => {
-                    const dateStr = new Date(task.deadline).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                // 🔥 ИСПРАВЛЕНИЕ: ЖЕСТКАЯ СОРТИРОВКА (Новые сверху)
+                // Мы берем дату создания (createdAt) или дедлайн (deadline) и сравниваем их.
+                // b - a = Сортировка по убыванию (сначала 2026, потом 2025...)
+                // 🔥 ИСПРАВЛЕНИЕ: СОРТИРОВКА СТРОГО ПО ДАТЕ СОЗДАНИЯ
+                tasks.sort((a, b) => {
+                    // Если CreatedAt нет (старые записи), используем Deadline как запасной вариант
+                    const dateA = new Date(a.createdAt || a.deadline);
+                    const dateB = new Date(b.createdAt || b.deadline);
+
+                    // Сортировка: Новые (большая дата) - сверху
+                    return dateB - dateA;
+                });
+
+                tasks.forEach(task => {
+                    // Используем наш форматтер для красивой даты
+                    const dateStr = formatKyivDate(task.deadline);
                     const taskData = JSON.stringify(task).replace(/"/g, '&quot;');
 
                     // STREAM: PASS 'true' (READ ONLY)
@@ -200,7 +227,7 @@ async function renderStream() {
     content.innerHTML = html;
 }
 
-// 5. ASSIGNMENTS LIST (ОНОВЛЕНО: ФІРМОВА КНОПКА 🔥)
+// 5. ASSIGNMENTS LIST (СОРТИРОВКА: НОВЫЕ СВЕРХУ 🔥)
 async function loadAssignments() {
     const content = document.getElementById('main-content');
     content.innerHTML = `<h3>Assignments</h3><div id="list" style="margin-top: 20px;">Loading...</div>`;
@@ -209,16 +236,24 @@ async function loadAssignments() {
     try {
         const response = await fetch(`${API_URL}/Assignments/course/${courseId}`);
         if (!response.ok) { list.innerHTML = 'Error loading data.'; return; }
+
         const tasks = await response.json();
         list.innerHTML = '';
 
         if (!tasks.length) { list.innerHTML = '<p style="color:#888;">No assignments yet.</p>'; return; }
 
+        // 🔥 СОРТИРОВКА: Новые задания (по дате создания) - СВЕРХУ
+        tasks.sort((a, b) => {
+            const dateA = new Date(a.createdAt || a.deadline);
+            const dateB = new Date(b.createdAt || b.deadline);
+            return dateB - dateA;
+        });
+
         tasks.forEach(task => {
             const taskData = JSON.stringify(task).replace(/"/g, '&quot;');
-            const dateStr = new Date(task.deadline).toLocaleDateString();
+            const dateStr = formatKyivDate(task.deadline);
 
-            // 🔥 КНОПКА ДЛЯ ВЧИТЕЛЯ ТАКА Ж ЯК І ДЛЯ СТУДЕНТА (ЗЕЛЕНА)
+            // Кнопка
             const btnHtml = !isTeacher
                 ? `<button onclick="openTaskView(${taskData}, false)" class="btn-menu-add" style="display:block; width:auto; padding: 10px 20px;">Open</button>`
                 : `<button onclick="openTaskView(${taskData}, true)" class="btn-menu-add" style="display:block; width:auto; padding: 10px 20px;">View</button>`;
@@ -247,7 +282,7 @@ function openTaskView(task, isReadOnly = false) {
     modal.style.display = 'flex';
     contentBox.innerHTML = '';
 
-    const dateStr = new Date(task.deadline).toLocaleString();
+    const dateStr = formatKyivDate(task.deadline);
     // Using inline style for white-space pre-wrap to preserve enters
     const descHtml = `<div style="white-space:pre-wrap; line-height:1.6; color:#333;">${task.description || "No instructions."}</div>`;
     const fileHtml = task.attachmentUrl
@@ -301,11 +336,11 @@ function openTaskView(task, isReadOnly = false) {
         </div>
     `;
 
-    loadStudentStatus(task.id);
+    loadStudentStatus(task.id, task.maxScore);
 }
 
-// ПРОВЕРКА: СДАЛ ИЛИ НЕТ?
-async function loadStudentStatus(assignmentId) {
+// ПРОВЕРКА: СДАЛ ИЛИ НЕТ? (С КОММЕНТАРИЕМ УЧИТЕЛЯ 🔥)
+async function loadStudentStatus(assignmentId, maxScore = 100) {
     const container = document.getElementById('student-work-area');
     if (!container) return;
 
@@ -321,12 +356,35 @@ async function loadStudentStatus(assignmentId) {
 
             // Если пришел реальный объект сдачи
             if (sub && sub.id) {
+
+                // 🔥 1. ГОТОВИМ HTML ДЛЯ КОММЕНТАРИЯ
+                // Проверяем оба варианта написания (с большой и маленькой буквы)
+                const tComment = sub.teacherComments || sub.TeacherComments;
+                let commentHtml = '';
+
+                if (tComment) {
+                    commentHtml = `
+                        <div style="
+                            margin-top: 15px; 
+                            padding: 12px; 
+                            background: #fff9c4; /* Светло-желтый фон для важности */
+                            border: 1px solid #fbc02d; 
+                            border-radius: 6px; 
+                            font-size: 13px; 
+                            color: #555;
+                        ">
+                            <div style="font-weight:bold; color:#f57f17; margin-bottom:4px;">💬 Teacher Feedback:</div>
+                            <div style="font-style:italic;">"${tComment}"</div>
+                        </div>
+                    `;
+                }
+
                 container.innerHTML = `
                     <div class="student-card" style="border-color:#c5e1a5; background:#f1f8e9;">
                         <div style="color:#2e7d32; font-weight:bold; font-size:16px;">✅ Handed In</div>
                         
                         <div style="font-size:12px; color:#666; margin-bottom:15px;">
-                            Submitted: ${new Date(sub.submissionDate).toLocaleString()}
+                            Submitted: ${formatKyivDate(sub.submissionDate)}
                         </div>
                         
                         ${sub.filePath ? `<a href="${sub.filePath}" target="_blank" style="color:#1565c0; font-weight:bold;">📄 View My File</a>` : ''}
@@ -335,10 +393,13 @@ async function loadStudentStatus(assignmentId) {
                         
                         <div style="margin-top:20px; border-top:1px solid #ddd; padding-top:10px;">
                             ${sub.grade !== null
-                        // Если есть оценка - показываем её
-                        ? `<div style="font-size:24px; color:#2e7d32; font-weight:bold; text-align:center;">${sub.grade} / 100</div><div style="text-align:center; font-size:12px; color:#555;">Graded</div>`
+                        // Если есть оценка
+                    ? `<div style="font-size:24px; color:#2e7d32; font-weight:bold; text-align:center;">${sub.grade} / ${maxScore}</div>
+                                   <div style="text-align:center; font-size:12px; color:#555;">Graded</div>
+                                   
+                                   ${commentHtml}`
 
-                        // 👇 ТВОЯ ЗЕЛЕНАЯ КНОПКА RESUBMIT (Если оценки нет) 👇
+                        // Кнопка пересдачи (если оценки нет)
                         : `<button onclick="renderUploadForm('${assignmentId}')" style="width:100%; padding:12px; background:#2e7d32; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">Resubmit</button>`
                     }
                         </div>
@@ -348,17 +409,14 @@ async function loadStudentStatus(assignmentId) {
             }
         }
 
-        // ВАРИАНТ 2: БЭКЕНД СКАЗАЛ "404" ИЛИ ПУСТО
-        // Значит, студент еще не сдавал. Просто рисуем форму.
+        // ВАРИАНТ 2: Студент еще не сдавал
         renderUploadForm(assignmentId);
 
     } catch (e) {
-        // Даже если ошибка сети, дадим шанс загрузить (или покажем форму)
         console.error(e);
         renderUploadForm(assignmentId);
     }
 }
-
 // 👇 ТВОЯ НОВАЯ ФУНКЦИЯ (Текст с авто-размером + Файл + Кнопка "Submit")
 function renderUploadForm(assignmentId) {
     const container = document.getElementById('student-work-area');
@@ -428,7 +486,7 @@ async function submitHomework(assignmentId) {
 }
 
 // ==========================================
-// TEACHER CREATE FORM - RESTORED
+// TEACHER CREATE FORM (С ЗАЩИТОЙ ОТ ПРОШЛОГО ВРЕМЕНИ)
 // ==========================================
 function openAssignmentModal() {
     const modal = document.getElementById('assignment-modal');
@@ -436,6 +494,12 @@ function openAssignmentModal() {
 
     modal.style.display = 'flex';
     contentBox.classList.remove('modal-wide');
+
+    // 🔥 1. ВЫЧИСЛЯЕМ ТЕКУЩЕЕ ВРЕМЯ В ФОРМАТЕ ДЛЯ INPUT (YYYY-MM-DDTHH:MM)
+    const now = new Date();
+    // Немного магии, чтобы получить правильный формат локального времени для input
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    const minDateTime = now.toISOString().slice(0, 16);
 
     contentBox.innerHTML = `
         <h3 style="margin-top:0;">New Assignment</h3>
@@ -445,8 +509,10 @@ function openAssignmentModal() {
             <label style="font-size: 12px; font-weight: bold; color: #555;">Attach File (Doc, PDF, Img):</label>
             <input type="file" id="assign-file" style="margin-top: 5px;">
         </div>
-        <div style="font-size:12px; color:#666;">Deadline:</div>
-        <input type="datetime-local" id="assign-deadline" class="modal-input">
+        <div style="font-size:12px; color:#666;">Deadline (Kyiv Time):</div>
+        
+        <input type="datetime-local" id="assign-deadline" class="modal-input" min="${minDateTime}">
+        
         <input type="number" id="assign-score" class="modal-input" placeholder="Max Score (e.g. 100)">
         <div class="modal-buttons" style="text-align: right; margin-top: 20px;">
             <button class="btn-cancel" onclick="closeAssignmentModal()" style="padding: 10px 20px; background: #eee; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">Cancel</button>
@@ -463,10 +529,10 @@ function closeAssignmentModal() {
     contentBox.innerHTML = '';
 }
 
-// 5. PEOPLE
+// 5. PEOPLE (Сортировка + Исправленная кнопка чата)
 async function renderPeople() {
     const content = document.getElementById('main-content');
-    content.innerHTML = `<h3>People </h3><div id="people-list">Loading...</div>`;
+    content.innerHTML = `<h3>People</h3><div id="people-list">Loading...</div>`;
 
     let myIdRaw = localStorage.getItem('userId');
     const myIdClean = myIdRaw ? String(myIdRaw).toLowerCase() : "";
@@ -477,58 +543,77 @@ async function renderPeople() {
         if (response.ok) {
             const students = await response.json();
 
-            // 🔥🔥🔥 СМОТРИ СЮДА В КОНСОЛИ 🔥🔥🔥
-            console.log("🔥 RAW DATA FROM SERVER:", students);
+            // 🔥 1. СОРТИРОВКА СТУДЕНТОВ ПО АЛФАВИТУ
+            // Сравниваем полные имена
+            students.sort((a, b) => {
+                const nameA = ((a.firstName || "") + " " + (a.lastName || "")).trim().toLowerCase();
+                const nameB = ((b.firstName || "") + " " + (b.lastName || "")).trim().toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
 
             const list = document.getElementById('people-list');
             list.innerHTML = '';
 
-            // --- ДАННЫЕ УЧИТЕЛЯ ---
+            // ==========================================
+            // 2. УЧИТЕЛЬ (Всегда первый, не участвует в сортировке)
+            // ==========================================
             const tName = currentCourseData.teacherName || "Teacher";
             let tId = currentCourseData.teacherId;
             if (tId) tId = String(tId).toLowerCase();
 
+            // Берем аватар учителя
+            const tAvatar = currentCourseData.teacherAvatarUrl || currentCourseData.TeacherAvatarUrl || currentCourseData.avatarUrl || "";
             const iAmTeacher = (myIdClean === tId);
 
-            // Кнопка Учителя
             let teacherChatBtn = '';
             if (!iAmTeacher && tId) {
-                teacherChatBtn = `<button onclick="startChat('${tId}', '${tName}')" style="background:#e8f5e9; color:#2e7d32; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:20px;">✉️</button>`;
+                // 🔥 ВАЖНО: Третий параметр '${tAvatar}' передает фото в чат сразу!
+                teacherChatBtn = `<button onclick="startChat('${tId}', '${tName}', '${tAvatar}')" style="background:#e8f5e9; color:#2e7d32; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:20px;">✉️</button>`;
             }
 
+            let teacherAvatarHtml;
+            if (tAvatar) {
+                teacherAvatarHtml = `<img src="${tAvatar}" style="width:40px; height:40px; border-radius:50%; margin-right:15px; object-fit:cover;" alt="${tName}" />`;
+            } else {
+                teacherAvatarHtml = `<div style="width:40px; height:40px; background:#2e7d32; color:white; border-radius:50%; display:flex; justify-content:center; align-items:center; font-weight:bold; margin-right:15px;">${tName[0]}</div>`;
+            }
+
+            // Рендерим учителя
             list.innerHTML += `
-                <div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content: space-between; align-items:center;">
+                <div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content: space-between; align-items:center; background-color: #fafafa;">
                     <div style="display:flex; align-items:center;">
-                        <div style="width:40px; height:40px; background:#2e7d32; color:white; border-radius:50%; display:flex; justify-content:center; align-items:center; font-weight:bold; margin-right:15px;">T</div>
-                        <div><div style="font-weight:bold;">${tName}</div><div style="font-size:12px; color:#888;">Teacher</div></div>
+                        ${teacherAvatarHtml}
+                        <div><div style="font-weight:bold;">${tName}</div><div style="font-size:12px; color:#2e7d32; font-weight:bold;">Teacher 🎓</div></div>
                     </div>
                     ${teacherChatBtn}
                 </div>`;
 
-            // СТУДЕНТЫ
+            // ==========================================
+            // 3. СТУДЕНТЫ (Уже отсортированные)
+            // ==========================================
             if (students.length === 0) {
-                list.innerHTML += '<p style="margin-top:20px; color:#777;">No students joined yet.</p>';
+                list.innerHTML += '<p style="margin-top:20px; color:#777; padding: 15px;">No students joined yet.</p>';
             } else {
-                students.forEach((s, index) => {
+                students.forEach((s) => {
                     const sName = `${s.firstName || "Student"} ${s.lastName || ""}`;
 
-                    // 🔥 ПОПЫТКА НАЙТИ ID ВО ВСЕХ ВОЗМОЖНЫХ ПОЛЯХ
-                    // Добавляем сюда appUserId, user_id и т.д.
-                    let rawId = s.id || s.Id || s.studentId || s.StudentId || s.userId || s.UserId || s.appUserId || s.AppUserId;
-
-                    if (!rawId) {
-                        console.error(`⚠️ STUDENT #${index} HAS NO ID FOUND! Keys available:`, Object.keys(s));
-                    }
-
+                    let rawId = s.id || s.Id || s.studentId || s.StudentId || s.userId || s.UserId;
                     let sId = rawId ? String(rawId).toLowerCase() : "undefined";
 
-                    const avatarHtml = `<div style="width:40px; height:40px; background:#555; color:white; border-radius:50%; display:flex; justify-content:center; align-items:center; font-weight:bold; margin-right:15px;">${sName[0]}</div>`;
+                    // Берем аватар студента
+                    const userAvatar = s.avatarUrl || s.AvatarUrl || "";
+
+                    let avatarHtml;
+                    if (userAvatar) {
+                        avatarHtml = `<img src="${userAvatar}" style="width:40px; height:40px; border-radius:50%; margin-right:15px; object-fit:cover;" alt="${sName}" />`;
+                    } else {
+                        avatarHtml = `<div style="width:40px; height:40px; background:#555; color:white; border-radius:50%; display:flex; justify-content:center; align-items:center; font-weight:bold; margin-right:15px;">${sName[0]}</div>`;
+                    }
 
                     let studentChatBtn = '';
-
-                    // Рисуем кнопку, если ID валидный
                     if (iAmTeacher && sId !== "undefined" && sId !== myIdClean) {
-                        studentChatBtn = `<button onclick="startChat('${sId}', '${sName}')" style="background:#e8f5e9; color:#2e7d32; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:20px;">✉️</button>`;
+                        // 🔥 ВАЖНО: Третий параметр '${userAvatar}' передает фото в чат сразу!
+                        studentChatBtn = `<button onclick="startChat('${sId}', '${sName}', '${userAvatar}')" style="background:#e8f5e9; color:#2e7d32; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:20px;">✉️</button>`;
                     }
 
                     list.innerHTML += `
@@ -547,21 +632,29 @@ async function renderPeople() {
     }
 }
 
-// 6. CREATE ASSIGNMENT (Logic)
+// 6. CREATE ASSIGNMENT (С ПРОВЕРКОЙ ВРЕМЕНИ)
 async function createAssignment() {
     const titleVal = document.getElementById('assign-name').value;
     const desc = document.getElementById('assign-desc').value;
-    const deadline = document.getElementById('assign-deadline').value;
+    const deadlineVal = document.getElementById('assign-deadline').value;
     const score = document.getElementById('assign-score').value;
     const fileInput = document.getElementById('assign-file');
 
-    if (!titleVal || !deadline || !score) { alert("Fill required fields"); return; }
+    if (!titleVal || !deadlineVal || !score) { alert("Fill required fields"); return; }
+
+    // 🔥 ПРОВЕРКА НА ПРОШЛОЕ
+    const selectedDate = new Date(deadlineVal);
+    const now = new Date();
+    if (selectedDate < now) {
+        alert("⚠️ You cannot set a deadline in the past!");
+        return;
+    }
 
     const formData = new FormData();
     formData.append('CourseId', courseId);
     formData.append('Title', titleVal);
     formData.append('Description', desc);
-    formData.append('Deadline', deadline);
+    formData.append('Deadline', deadlineVal);
     formData.append('MaxScore', score);
     if (fileInput.files[0]) formData.append('File', fileInput.files[0]);
 
@@ -573,7 +666,6 @@ async function createAssignment() {
         } else { alert("Error creating assignment"); }
     } catch (e) { console.error(e); }
 }
-
 async function loadUserAvatar() {
     if (userName) document.getElementById('user-avatar').innerText = userName.charAt(0).toUpperCase();
     if (!userEmail) return;
@@ -595,7 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCourseInfo();
 });
 
-// 10. SUBMISSIONS (ACCORDION + ANIMATION 🔥)
+// 10. SUBMISSIONS (СОРТИРОВКА + АВАТАРКИ 🔥)
 async function renderSubmissionsTab() {
     const content = document.getElementById('main-content');
     content.innerHTML = `<h3>Incoming Submissions</h3><div id="subs-list">Loading...</div>`;
@@ -604,13 +696,21 @@ async function renderSubmissionsTab() {
     try {
         const resAssign = await fetch(`${API_URL}/Assignments/course/${courseId}`);
         if (!resAssign.ok) throw new Error("Failed");
+
         const assignments = await resAssign.json();
         list.innerHTML = '';
 
         if (assignments.length === 0) { list.innerHTML = '<p>No assignments.</p>'; return; }
 
+        // СОРТИРОВКА: Новые задания сверху
+        assignments.sort((a, b) => {
+            const dateA = new Date(a.createdAt || a.deadline);
+            const dateB = new Date(b.createdAt || b.deadline);
+            return dateB - dateA;
+        });
+
         for (const task of assignments) {
-            // Створюємо блок завдання
+            // Блок задания
             const taskBlock = document.createElement('div');
             taskBlock.className = 'submission-accordion-item';
             taskBlock.style.marginBottom = "10px";
@@ -619,7 +719,7 @@ async function renderSubmissionsTab() {
             taskBlock.style.overflow = "hidden";
             taskBlock.style.background = "white";
 
-            // Створюємо ЗАГОЛОВОК (Видимий відразу!)
+            // Заголовок
             const headerDiv = document.createElement('div');
             headerDiv.style.padding = "15px 20px";
             headerDiv.style.background = "#f9f9f9";
@@ -628,10 +728,9 @@ async function renderSubmissionsTab() {
             headerDiv.style.justifyContent = "space-between";
             headerDiv.style.alignItems = "center";
             headerDiv.style.fontWeight = "bold";
-            // Текст загрузки
             headerDiv.innerHTML = `<span>${task.title}</span><span style="font-size:12px; color:#777; font-weight:normal;">Loading...</span>`;
 
-            // Створюємо ТІЛО (Сховане, зі скролом)
+            // Тело
             const bodyDiv = document.createElement('div');
             bodyDiv.id = `subs-body-${task.id}`;
             bodyDiv.className = 'submission-body';
@@ -640,17 +739,11 @@ async function renderSubmissionsTab() {
             bodyDiv.style.maxHeight = "400px";
             bodyDiv.style.overflowY = "auto";
 
-            // КЛІК ПО ЗАГОЛОВКУ (Гармошка + Анімація стрілки)
+            // Клик (Аккордеон)
             headerDiv.onclick = () => {
                 const isClosed = bodyDiv.style.display === "none";
-
-                // Закриваємо всі тіла
                 document.querySelectorAll('.submission-body').forEach(el => el.style.display = 'none');
-
-                // Скидаємо всі стрілки в 0
                 document.querySelectorAll('.sub-arrow').forEach(el => el.style.transform = 'rotate(0deg)');
-
-                // Відкриваємо поточний
                 if (isClosed) {
                     bodyDiv.style.display = "block";
                     const arrow = headerDiv.querySelector('.sub-arrow');
@@ -662,11 +755,10 @@ async function renderSubmissionsTab() {
             taskBlock.appendChild(bodyDiv);
             list.appendChild(taskBlock);
 
-            // Підвантажуємо дані
+            // Подгрузка списка сдавших
             fetch(`${API_URL}/Submissions/assignment/${task.id}`)
                 .then(r => r.ok ? r.json() : [])
                 .then(submissions => {
-                    // 🔥 ОНОВЛЕННЯ ЗАГОЛОВКУ ЗІ СТРІЛОЧКОЮ І АНІМАЦІЄЮ
                     headerDiv.innerHTML = `
                         <span>${task.title}</span>
                         <span style="font-weight:normal; font-size:12px; color:#777; background:#eee; padding:2px 8px; border-radius:10px; display:inline-flex; align-items:center; gap:5px;">
@@ -674,19 +766,47 @@ async function renderSubmissionsTab() {
                             <span class="sub-arrow" style="display:inline-block; transition:transform 0.3s ease;">▼</span>
                         </span>`;
 
-                    // Наповнюємо тіло
                     if (submissions.length > 0) {
-                        bodyDiv.innerHTML = submissions.map(sub => `
+                        bodyDiv.innerHTML = submissions.map(sub => {
+                            const subDate = new Date(sub.submissionDate);
+                            const deadLine = new Date(task.deadline);
+                            const isLate = subDate > deadLine;
+
+                            const dateColor = isLate ? "#d32f2f" : "#888";
+                            const lateBadge = isLate ? `<span style="color:red; font-weight:bold; font-size:10px; margin-left:5px;">LATE</span>` : "";
+
+                            // 🔥🔥🔥 ЛОГИКА АВАТАРОК 🔥🔥🔥
+                            const sName = sub.studentName || "Student";
+                            const sAvatar = sub.studentAvatarUrl; // Берем поле, которое добавили в C#
+
+                            let avatarHtml;
+                            if (sAvatar) {
+                                // Если есть фото
+                                avatarHtml = `<img src="${sAvatar}" style="width:30px; height:30px; border-radius:50%; object-fit:cover;" alt="${sName}" />`;
+                            } else {
+                                // Если нет фото (серый круг)
+                                avatarHtml = `<div style="width:30px; height:30px; background:#ccc; border-radius:50%; color:white; display:flex; justify-content:center; align-items:center; font-size:12px;">${sName[0]}</div>`;
+                            }
+
+                            return `
                             <div style="padding:15px; border-bottom:1px solid #f0f0f0; display:flex; justify-content:space-between; align-items:center;">
                                 <div style="display:flex; align-items:center; gap:10px;">
-                                    <div style="width:30px; height:30px; background:#ccc; border-radius:50%; color:white; display:flex; justify-content:center; align-items:center; font-size:12px;">${sub.studentName[0]}</div>
-                                    <div><div style="font-weight:bold; font-size:14px;">${sub.studentName}</div><div style="font-size:11px; color:#888;">${new Date(sub.submissionDate).toLocaleString()}</div></div>
+                                    
+                                    ${avatarHtml}
+
+                                    <div>
+                                        <div style="font-weight:bold; font-size:14px;">${sName}</div>
+                                        <div style="font-size:11px; color:${dateColor};">
+                                            ${formatKyivDate(sub.submissionDate)} ${lateBadge}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div style="display:flex; align-items:center; gap:10px;">
                                     ${sub.grade ? `<span style="background:#e8f5e9; color:#2e7d32; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${sub.grade}</span>` : `<span style="background:#fff3e0; color:#ef6c00; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold;">New</span>`}
                                     <button onclick="openGradingModal(${JSON.stringify(sub).replace(/"/g, '&quot;')}, ${JSON.stringify(task).replace(/"/g, '&quot;')})" style="border:1px solid #2e7d32; background:white; color:#2e7d32; padding:5px 12px; border-radius:4px; cursor:pointer; font-size:12px;">Open</button>
                                 </div>
-                            </div>`).join('');
+                            </div>`;
+                        }).join('');
                     } else {
                         bodyDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#999;">No submissions yet.</div>`;
                     }
@@ -699,15 +819,25 @@ function openGradingModal(sub, task) {
     const contentBox = modal.querySelector('.modal-content');
 
     modal.style.display = 'flex';
-    contentBox.classList.add('modal-wide'); // Делаем широким (Сплит)
+    contentBox.classList.add('modal-wide');
 
-    // 1. ЛЕВАЯ ЧАСТЬ (РАБОТА СТУДЕНТА)
-    // Если есть файл, рисуем красивую кнопку скачивания
+    // 🔥 РАСЧЕТ ОПОЗДАНИЯ
+    const subDate = new Date(sub.submissionDate);
+    const deadLine = new Date(task.deadline);
+    const isLate = subDate > deadLine;
+
+    // Плашка "LATE"
+    const lateAlert = isLate
+        ? `<div style="background:#ffebee; color:#c62828; padding:8px 12px; border-radius:5px; margin-bottom:15px; font-weight:bold; border:1px solid #ffcdd2; display:flex; align-items:center; gap:10px;">
+             <span>⚠️</span> Turned in Late
+           </div>`
+        : '';
+
+    // 1. ЛЕВАЯ ЧАСТЬ
     const fileSection = sub.filePath
         ? `<div style="margin-top:20px; padding:15px; background:#f5f5f5; border-radius:8px; border:1px solid #ddd;">
              <div style="font-size:12px; color:#666; margin-bottom:5px;">Attached File:</div>
-             <a href="${sub.filePath}" target="_blank" download 
-                style="display:flex; align-items:center; gap:10px; text-decoration:none; color:#333; font-weight:bold;">
+             <a href="${sub.filePath}" target="_blank" download style="display:flex; align-items:center; gap:10px; text-decoration:none; color:#333; font-weight:bold;">
                 <span style="font-size:20px;">📄</span> Download Student's Work
              </a>
            </div>`
@@ -724,15 +854,19 @@ function openGradingModal(sub, task) {
         <div class="split-left">
             <h3 style="margin-top:0; color:#2e7d32;">${sub.studentName}'s Submission</h3>
             <div style="font-size:13px; color:#555;">Task: <b>${task.title}</b></div>
-            <div style="font-size:12px; color:#888; margin-bottom:20px;">Submitted: ${new Date(sub.submissionDate).toLocaleString()}</div>
+            
+            ${lateAlert}
+
+            <div style="font-size:12px; color:${isLate ? '#c62828' : '#888'}; margin-bottom:20px;">
+                Submitted: ${formatKyivDate(sub.submissionDate)}
+            </div>
             
             ${textSection}
             ${fileSection}
         </div>
     `;
 
-    // 2. ПРАВАЯ ЧАСТЬ (ОЦЕНКА ТИЧЕРА)
-    // Если оценка уже стоит, подставим её в поле
+    // 2. ПРАВАЯ ЧАСТЬ (Остается без изменений)
     const currentGrade = sub.grade !== null ? sub.grade : '';
     const currentComment = sub.teacherComments || '';
 
@@ -755,7 +889,6 @@ function openGradingModal(sub, task) {
         </div>
     `;
 
-    // СОБИРАЕМ ВСЁ ВМЕСТЕ
     contentBox.innerHTML = `
         <div style="text-align:right; margin-bottom:5px;">
             <span onclick="closeAssignmentModal()" style="cursor:pointer; font-size:24px; color:#999;">&times;</span>
@@ -796,157 +929,249 @@ async function submitGrade(submissionId) {
     }
 }
 
-// 11. ТАБЛИЦА ОЦЕНОК (ДЛЯ ТИЧЕРА И СТУДЕНТА)
+// 11. ТАБЛИЦА ОЦЕНОК (С ЦВЕТОВОЙ ЛОГИКОЙ %)
 async function renderGrades() {
     const content = document.getElementById('main-content');
-    content.innerHTML = `<div id="gradebook-header"></div><div id="gradebook-container">Loading...</div>`;
+    const sidebar = document.querySelector('.sidebar');
+
+    // 🔥 ФИКС ВЕРСТКИ 🔥
+    // 1. Запрещаем меню сжиматься (фиксируем его железобетонно)
+    if (sidebar) {
+        sidebar.style.minWidth = "250px";
+        sidebar.style.flexShrink = "0";
+    }
+
+    // 2. Заставляем контент уважать границы экрана
+    content.style.minWidth = "0";
+    content.style.width = "100%";
+
+    content.innerHTML = `<div id="gradebook-header"></div><div id="gradebook-container" style="width:100%; min-width:0;">Loading...</div>`;
     const container = document.getElementById('gradebook-container');
 
     // ===========================================
-    // 🅰️ ВАРИАНТ ДЛЯ СТУДЕНТА
+    // 🅰️ СТУДЕНТ (Без изменений)
     // ===========================================
     if (!isTeacher) {
         document.getElementById('gradebook-header').innerHTML = `<h3 style="margin-bottom:20px;">My Grades</h3>`;
-
         try {
             const res = await fetch(`${API_URL}/Submissions/student-grades/${courseId}/${userId}`);
-            if (!res.ok) throw new Error("Error loading grades");
-
+            if (!res.ok) throw new Error("Error");
             const myGrades = await res.json();
 
-            if (myGrades.length === 0) {
-                container.innerHTML = "<p>No assignments yet.</p>";
-                return;
-            }
+            if (myGrades.length === 0) { container.innerHTML = "<p>No assignments yet.</p>"; return; }
 
-            let html = `<div style="max-width: 800px;">`; // Ограничим ширину для красоты
+            // 🔥 ИСПРАВЛЕННАЯ СОРТИРОВКА: СТАРЫЕ (Lab 1) СВЕРХУ, НОВЫЕ (Lab 2) СНИЗУ
+            myGrades.sort((a, b) => {
+                // 1. Сортировка по дате создания (createdAt)
+                // Если поля createdAt нет в JSON, пробуем deadline. Если и его нет — 0.
+                const dateA = new Date(a.createdAt || a.deadline || 0);
+                const dateB = new Date(b.deadline || b.createdAt || 0);
 
+                // a - b = Сортировка по возрастанию (от прошлого к будущему)
+                if (dateA.getTime() !== dateB.getTime()) {
+                    return dateA - dateB;
+                }
+
+                // 2. ЗАПАСНОЙ ВАРИАНТ: Если даты совпадают (или их нет), сортируем по названию
+                // Это гарантирует, что "Lab 1" будет выше "Lab 2"
+                const titleA = (a.assignmentTitle || "").toLowerCase();
+                const titleB = (b.assignmentTitle || "").toLowerCase();
+
+                // Сравнение строк (алфавитный порядок)
+                if (titleA < titleB) return -1;
+                if (titleA > titleB) return 1;
+                return 0;
+            });
+
+            let html = `<div style="max-width: 800px;">`;
             myGrades.forEach(item => {
-                // Определяем статус и цвет
                 let statusBadge = `<span style="color:#999; font-size:12px;">Not Submitted</span>`;
                 let gradeDisplay = `<span style="color:#999;">- / ${item.maxScore}</span>`;
-                let borderLeftColor = "#ccc"; // Серый по умолчанию
+                let borderLeftColor = "#ccc";
 
                 if (item.hasSubmitted) {
                     if (item.grade !== null) {
-                        // Оценено
                         statusBadge = `<span style="color:#2e7d32; font-weight:bold; font-size:12px;">✅ Graded</span>`;
                         gradeDisplay = `<span style="font-size:18px; font-weight:bold; color:#2e7d32;">${item.grade}</span> <span style="font-size:12px; color:#666;">/ ${item.maxScore}</span>`;
-                        borderLeftColor = "#2e7d32"; // Зеленая полоска
+                        borderLeftColor = "#2e7d32";
                     } else {
-                        // Сдано, ждет проверки
                         statusBadge = `<span style="color:#f57c00; font-weight:bold; font-size:12px;">🕒 Turned In</span>`;
                         gradeDisplay = `<span style="font-size:14px; color:#f57c00;">Pending</span>`;
-                        borderLeftColor = "#f57c00"; // Оранжевая полоска
+                        borderLeftColor = "#f57c00";
                     }
                 }
 
-                // Рисуем карточку
-                html += `
-                    <div style="
-                        display: flex; 
-                        justify-content: space-between; 
-                        align-items: center; 
-                        background: white; 
-                        border: 1px solid #eee; 
-                        border-left: 5px solid ${borderLeftColor}; 
-                        border-radius: 5px; 
-                        padding: 15px 20px; 
-                        margin-bottom: 10px;
-                        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
-                    ">
-                        <div>
-                            <div style="font-weight:bold; font-size:16px; color:#333;">${item.assignmentTitle}</div>
-                            <div style="margin-top:4px;">${statusBadge}</div>
-                        </div>
-                        <div style="text-align:right;">
-                            ${gradeDisplay}
-                        </div>
-                    </div>
-                `;
-            });
+                // Комментарий учителя
+                let commentHtml = '';
+                if (item.teacherComment) {
+                    commentHtml = `
+                        <div style="margin-top:0; padding:12px 20px; background:#fafafa; border-top:1px solid #eee; color:#555; font-size:13px; font-style:italic; border-bottom-left-radius:5px; border-bottom-right-radius:5px;">
+                            <span style="font-weight:bold; color:#2e7d32; font-style:normal;">Teacher Comment:</span> "${item.teacherComment}"
+                        </div>`;
+                }
 
+                html += `
+                    <div style="background:white; border:1px solid #eee; border-left:5px solid ${borderLeftColor}; border-radius:5px; margin-bottom:15px; box-shadow:0 2px 5px rgba(0,0,0,0.03);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:15px 20px;">
+                            <div><div style="font-weight:bold; font-size:16px; color:#333;">${item.assignmentTitle}</div><div style="margin-top:4px;">${statusBadge}</div></div>
+                            <div style="text-align:right;">${gradeDisplay}</div>
+                        </div>
+                        ${commentHtml}
+                    </div>`;
+            });
             html += `</div>`;
             container.innerHTML = html;
-
-        } catch (e) {
-            console.error(e);
-            container.innerHTML = "Error loading your grades.";
-        }
-        return; // Выходим, чтобы не рисовать таблицу учителя
+        } catch (e) { container.innerHTML = "Error loading grades."; }
+        return;
     }
 
     // ===========================================
-    // 🅱️ ВАРИАНТ ДЛЯ УЧИТЕЛЯ (ТАБЛИЦА)
+    // 🅱️ УЧИТЕЛЬ (СВЕТОФОР 🚦)
     // ===========================================
     try {
         const res = await fetch(`${API_URL}/Submissions/gradebook/${courseId}`);
-        if (!res.ok) throw new Error("Error loading gradebook");
-
+        if (!res.ok) throw new Error("Error");
         const data = await res.json();
-        const header = document.getElementById('gradebook-header');
 
-        // ШАПКА ТИЧЕРА
-        header.innerHTML = `
+        // 👇 ВОТ СЮДА
+        console.log("ASSIGNMENTS RAW:");
+        data.assignments.forEach(a => {
+            console.log("TITLE:", a.title, "CREATED:", a.createdAt);
+        });
+
+        // 🔥 СОРТИРОВКА СТУДЕНТОВ ПО АЛФАВИТУ
+        data.students.sort((a, b) => {
+            return (a.studentName || "").localeCompare(
+                b.studentName || "",
+                undefined,
+                {
+                    sensitivity: "base", // игнорирует регистр
+                    numeric: true        // понимает "Student 2" перед "Student 10"
+                }
+            );
+        });
+
+        // 🔥 ЧИСТАЯ СОРТИРОВКА: Сначала по времени, если время равное — по названию
+        const sortedAssignmentsWithIndex = data.assignments
+            .map((assignment, index) => ({ ...assignment, originalIndex: index }))
+            .sort((a, b) => {
+
+                const timeA = a.createdAt ? Date.parse(a.createdAt) : 0;
+                const timeB = b.createdAt ? Date.parse(b.createdAt) : 0;
+
+                if (timeA !== timeB) {
+                    return timeA - timeB; // старые слева, новые справа
+                }
+
+                return (a.title || "").localeCompare(
+                    b.title || "",
+                    undefined,
+                    { numeric: true }
+                );
+            });;
+
+        // Обновляем порядок колонок
+        data.assignments = sortedAssignmentsWithIndex;
+
+        // Синхронизируем оценки студентов под новые колонки
+        data.students.forEach(student => {
+            const sortedGrades = [];
+            sortedAssignmentsWithIndex.forEach(sa => {
+                sortedGrades.push(student.grades[sa.originalIndex]);
+            });
+            student.grades = sortedGrades;
+        });
+
+        document.getElementById('gradebook-header').innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h3 style="margin: 0;">Gradebook</h3>
-                <button id="btn-export" class="btn-menu-add" 
-                    style="width: auto; margin: 0; background:#1D6F42; display: flex; align-items: center; gap: 8px; padding: 8px 15px;">
-                    <span>📊</span> Export to Excel
-                </button>
-            </div>
-        `;
+                <button id="btn-export" class="btn-menu-add" style="width: auto; margin: 0; background:#1D6F42; display: flex; align-items: center; gap: 8px; padding: 8px 15px;"><span>📊</span> Export to Excel</button>
+            </div>`;
 
         if (data.students.length === 0) {
-            container.innerHTML = "<p style='color:#777;'>No students in this course yet.</p>";
+            container.innerHTML = "<p style='color:#777;'>No students yet.</p>";
             return;
         }
 
-        // ТАБЛИЦА ТИЧЕРА
         let tableHtml = `
-            <div style="overflow-x:auto; border: 1px solid #ccc; border-radius: 5px; display:inline-block; max-width:100%;">
-            <table style="width: max-content; border-collapse: collapse; font-size: 14px;">
-                <thead>
-                    <tr style="background:#f5f5f5;">
-                        <th style="padding:12px 20px; text-align:left; color:#333; border: 1px solid #ccc; white-space: nowrap;">
-                            Student Name
-                        </th>
-                        ${data.assignments.map(a => `
-                            <th style="padding:12px 20px; text-align:center; color:#333; border: 1px solid #ccc; white-space: nowrap;">
-                                ${a.title}
-                                <div style="font-size:10px; color:#888; font-weight:normal;">Max: ${a.maxScore}</div>
+            <div style="width: 100%; overflow-x: auto; border: 1px solid #ccc; border-radius: 8px; background: white;">
+                <table style="width: 100%; border-collapse: separate; border-spacing: 0; min-width: max-content;">
+                    <thead>
+                        <tr style="background:#f9f9f9;">
+                            <th style="padding:15px 20px; text-align:left; color:#555; position:sticky; left:0; background:#f9f9f9; z-index:10; border-right:2px solid #eee; border-bottom:1px solid #eee;">
+                                Student Name
                             </th>
-                        `).join('')}
-                    </tr>
-                </thead>
-                <tbody>
+                            ${data.assignments.map(a => `
+                                <th style="padding:15px 20px; text-align:center; color:#333; border-bottom:1px solid #eee; border-right:1px solid #eee; min-width: 100px;">
+                                    ${a.title}
+                                    <div style="font-size:10px; color:#888; font-weight:normal;">Max: ${a.maxScore}</div>
+                                </th>
+                            `).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
         `;
 
         data.students.forEach(student => {
             tableHtml += `
                 <tr>
-                    <td style="padding:12px 20px; font-weight:bold; color:#333; border: 1px solid #ccc; background: #fff; white-space: nowrap;">
+                    <td style="padding:12px 20px; font-weight:bold; color:#333; position:sticky; left:0; background:white; z-index:5; border-right:2px solid #eee; border-bottom:1px solid #eee;">
                         ${student.studentName}
                     </td>
-                    ${student.grades.map(g => {
+                    ${student.grades.map((g, index) => {
+                // 🔥 МАГИЯ ЦВЕТА
+                // 1. Получаем макс. балл для ЭТОГО задания (используем индекс)
+                const maxScore = data.assignments[index].maxScore;
+
                 let cellContent = "-";
-                let color = "#bbb";
-                let bg = "#fff";
+                let color = "#ccc";
+                let bg = "transparent";
+                let fontWeight = "normal";
 
                 if (g.score !== null) {
                     cellContent = g.score;
-                    color = "#2e7d32";
-                    bg = "#e8f5e9";
+
+                    // 2. Считаем процент
+                    const percentage = (g.score / maxScore) * 100;
+
+                    // 3. Выбираем цвет фона и текста
+                    if (percentage < 40) {
+                        // Плохо (Красный)
+                        color = "#c62828";
+                        bg = "#ffcdd2";
+                    } else if (percentage < 80) {
+                        // Норм (Желтый/Оранжевый)
+                        color = "#ef6c00";
+                        bg = "#ffe0b2";
+                    } else {
+                        // Отлично (Зеленый)
+                        color = "#2e7d32";
+                        bg = "#aaffad9c";
+                    }
+                    fontWeight = "bold";
+
                 } else if (g.isSubmitted) {
                     cellContent = "Needs Grading";
-                    color = "#f57c00";
-                    bg = "#fff3e0";
+                    color = "#1565c0"; // Синий для проверки
+                    bg = "#e3f2fd";
+                    fontWeight = "bold";
                 }
 
-                return `<td style="padding:12px 20px; text-align:center; color:${color}; font-weight:bold; border: 1px solid #ccc; background: ${bg}; white-space: nowrap;">${cellContent}</td>`;
-            }).join('')}
-                </tr>
-            `;
+                        // 🔥 ТЕПЕРЬ СТИЛИ (bg, color) ПРИМЕНЯЕМ К TD, А НЕ К DIV
+                        return `
+                            <td style="
+                                padding: 12px 20px; 
+                                text-align: center; 
+                                border-right: 1px solid #eee; 
+                                border-bottom: 1px solid #eee;
+                                background-color: ${bg}; 
+                                color: ${color}; 
+                                font-weight: ${fontWeight};
+                            ">
+                                ${cellContent}
+                            </td>`;
+                    }).join('')}
+                </tr>`;
         });
 
         tableHtml += `</tbody></table></div>`;

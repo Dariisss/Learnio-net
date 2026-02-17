@@ -50,7 +50,9 @@ async function initChatSystem() {
 
             if (savedReceiverId && savedReceiverId !== "undefined") {
                 console.log("🔄 Restoring chat with:", savedReceiverName);
-                await openChatWithUser(savedReceiverId, savedReceiverName);
+                // Берем аватарку из памяти
+                const savedAvatar = localStorage.getItem('currentReceiverAvatar') || "";
+                await openChatWithUser(savedReceiverId, savedReceiverName, savedAvatar);
             }
         }
     }
@@ -77,7 +79,9 @@ function renderChatBase(contacts) {
     let contactsHtml = '';
     if (contacts && contacts.length > 0) {
         contactsHtml = `<div class="contacts-list">`;
+
         contacts.forEach(user => {
+            const currentAvatar = user.avatarUrl || user.AvatarUrl;
             const initials = user.name ? user.name.substring(0, 2).toUpperCase() : "??";
 
             // ЛОГИКА: Если есть непрочитанные > 0, рисуем красную точку
@@ -85,13 +89,24 @@ function renderChatBase(contacts) {
                 ? `<div class="contact-badge" id="badge-${user.id}"></div>`
                 : `<div class="contact-badge" id="badge-${user.id}" style="display:none;"></div>`;
 
+            // 🔥 ЛОГИКА АВАТАРКИ
+            let avatarContent;
+            if (currentAvatar && currentAvatar !== "null" && currentAvatar !== "") {
+                avatarContent = `<img src="${currentAvatar}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+            } else {
+                avatarContent = initials;
+            }
+
+            // 🔥 ВАЖНО: В onclick используем ту же переменную 'currentAvatar', что объявили выше
+            // А не avatarUrl, который вызывал ошибку.
             contactsHtml += `
                 <div class="contact-avatar" 
                      id="contact-bubble-${user.id}"
-                     onclick="startChat('${user.id}', '${user.name}')" 
+                     onclick="startChat('${user.id}', '${user.name}', '${currentAvatar || ""}')" 
                      title="${user.name}">
-                     ${initials}
-                     ${badgeHtml} </div>`;
+                     ${avatarContent}
+                     ${badgeHtml}
+                </div>`;
         });
         contactsHtml += `</div>`;
     }
@@ -130,24 +145,25 @@ function renderChatBase(contacts) {
 }
 
 // Эта функция вызывается при клике
-async function startChat(userId, userName) {
+async function startChat(userId, userName, avatarUrl = "") {
     // 🔥 ЗАЩИТА ОТ ДУРАКА (UNDEFINED)
     if (!userId || userId === "undefined" || userId === "null") {
         console.error("❌ startChat called with INVALID ID:", userId);
-        alert("Error: Cannot start chat. User ID is missing.");
         return;
     }
 
     await openChatFromNav();
-    await openChatWithUser(userId, userName);
+    await openChatWithUser(userId, userName, avatarUrl); // Передаем дальше
 }
 
-async function openChatWithUser(userId, userName) {
+async function openChatWithUser(userId, userName, avatarUrl = "") {
     currentReceiverId = userId;
     currentReceiverName = userName;
 
     localStorage.setItem('currentReceiverId', userId);
     localStorage.setItem('currentReceiverName', userName);
+    // Сохраняем и аватарку, чтобы при обновлении страницы она не пропадала
+    localStorage.setItem('currentReceiverAvatar', avatarUrl);
 
     // UI Updates
     const bar = document.querySelector('.chat-recipient-bar');
@@ -158,9 +174,21 @@ async function openChatWithUser(userId, userName) {
 
     const initials = userName ? userName.substring(0, 2).toUpperCase() : "??";
     const avatarDiv = document.getElementById('recipient-avatar-placeholder');
+
     if (avatarDiv) {
-        avatarDiv.innerText = initials;
+        // 🔥 ЛОГИКА АВАТАРКИ В ШАПКЕ
+        if (avatarUrl && avatarUrl !== "null" && avatarUrl !== "undefined") {
+            avatarDiv.innerHTML = `<img src="${avatarUrl}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+            // Убираем фоновый цвет кружка, чтобы картинка была красивой
+            avatarDiv.style.background = "transparent";
+        } else {
+            avatarDiv.innerText = initials;
+            avatarDiv.innerHTML = initials; // Сбрасываем HTML (убираем img)
+            avatarDiv.style.background = "var(--chat-main)"; // Возвращаем зеленый фон
+        }
         avatarDiv.style.display = 'flex';
+        // Немного хаков, чтобы текст внутри img не вылезал (overflow hidden)
+        avatarDiv.style.overflow = "hidden";
     }
 
     document.querySelectorAll('.contact-avatar').forEach(el => el.classList.remove('active'));

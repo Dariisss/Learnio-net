@@ -3,10 +3,9 @@
 // Проверка при загрузке
 if (!localStorage.getItem('userId')) window.location.href = "index.html";
 
-// ГРАДИЕНТЫ
 const gradients = [
     "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
-    "linear-gradient(135deg, #c3cfe2 0%, #c3cfe2 100%)",
+    "linear-gradient(135deg, #ee9ca7 0%, #ffdde1 100%)",
     "linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)",
     "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
     "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",

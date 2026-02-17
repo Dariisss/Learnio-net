@@ -41,3 +41,19 @@ async function registerUser() {
         alert("Server error. Is the backend running?");
     }
 }
+
+// Логика для глазика на странице регистрации
+const toggleRegPassword = document.querySelector('#toggleRegPassword');
+const regPasswordInput = document.querySelector('#reg-password');
+
+if (toggleRegPassword && regPasswordInput) {
+    toggleRegPassword.addEventListener('click', function () {
+        // Переключаем тип
+        const type = regPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        regPasswordInput.setAttribute('type', type);
+
+        // Переключаем иконку
+        this.classList.toggle('fa-eye');
+        this.classList.toggle('fa-eye-slash');
+    });
+}

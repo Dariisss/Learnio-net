@@ -104,10 +104,13 @@ namespace Learnio.Controllers
                     s.StudentId,
                     // Собираем полное имя
                     StudentName = s.Student.FirstName + " " + s.Student.LastName,
+                    // 🔥 ДОБАВЬТЕ ЭТУ СТРОКУ:
+                    StudentAvatarUrl = s.Student.AvatarUrl,
                     s.SubmissionDate,
                     s.FilePath,
                     s.TextAnswer,
                     s.Grade
+
                 })
                 .ToListAsync();
 
@@ -137,8 +140,14 @@ namespace Learnio.Controllers
             // 1. Берем все задания курса (для заголовков таблицы)
             var assignments = await _context.Assignments
                 .Where(a => a.CourseId == courseId)
-                .OrderBy(a => a.Deadline) // Сортируем по дате
-                .Select(a => new { a.Id, a.Title, a.MaxScore })
+                .OrderBy(a => a.CreatedAt) // Сортируем по дате
+                .Select(a => new
+                {
+                    a.Id,
+                    a.Title,
+                    a.MaxScore,
+                    a.CreatedAt   // 👈 ОБЯЗАТЕЛЬНО ДОБАВИТЬ
+                })
                 .ToListAsync();
 
             // 2. Берем всех студентов курса (для строк таблицы)
@@ -205,7 +214,9 @@ namespace Learnio.Controllers
                     Deadline = a.Deadline,
                     HasSubmitted = sub != null,
                     Grade = sub?.Grade,
-                    SubmittedDate = sub?.SubmissionDate
+                    SubmittedDate = sub?.SubmissionDate,
+                    // 🔥 ДОБАВИТЬ ЭТУ СТРОКУ:
+                    TeacherComment = sub?.TeacherComments
                 };
             });
 

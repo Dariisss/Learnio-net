@@ -13,11 +13,11 @@
 
 /* 1. ГЛАВНЫЙ КОНТЕЙНЕР (Сайдбар) */
 #chat-wrapper {
-    position: absolute;
+    position: fixed;
     top: 0 !important; /* Принудительно вверх */
     bottom: 0 !important; /* Принудительно до самого низа */
     right: 0;
-    height: 100% !important; /* На всякий случай заменяем vh на % */
+    height: 100vh !important; /* На всякий случай заменяем vh на % */
     z-index: 2147483647; /* Максимально возможный z-index, чтобы перекрыть всё */
     display: none;
     transform: translateX(100%);

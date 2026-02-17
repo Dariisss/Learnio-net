@@ -48,3 +48,19 @@ function showError(msg) {
     el.innerText = msg;
     el.style.display = 'block';
 }
+
+// Логика для глазика на странице входа
+const togglePassword = document.querySelector('#togglePassword');
+const passwordInput = document.querySelector('#password');
+
+if (togglePassword && passwordInput) {
+    togglePassword.addEventListener('click', function () {
+        // Переключаем тип: password <-> text
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+
+        // Переключаем иконку: глаз <-> перечеркнутый глаз
+        this.classList.toggle('fa-eye');
+        this.classList.toggle('fa-eye-slash');
+    });
+}

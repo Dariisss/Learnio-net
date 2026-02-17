@@ -10,6 +10,8 @@ namespace Learnio.Entities
         public DateTime Deadline { get; set; }
         public int MaxScore { get; set; }
         public string? AttachmentUrl { get; set; }
+        // 🔥 ДОБАВИТЬ ВОТ ЭТО:
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Связь с курсом
         public Guid CourseId { get; set; }
