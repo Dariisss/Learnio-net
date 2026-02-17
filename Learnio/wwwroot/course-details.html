@@ -10,7 +10,7 @@
         /* Стиль для кнопки в меню */
         .btn-menu-add {
             width: 100%;
-            background-color: #2e7d32;
+            background-color: #4bcb52;
             color: white;
             border: none;
             padding: 10px;
@@ -21,10 +21,41 @@
             display: none; /* Скрыто по умолчанию */
         }
 
+            /* Эффект наведения для ВСЕХ кнопок сразу */
             .btn-menu-add:hover {
-                background-color: #1b5e20;
+                filter: brightness(0.9); /* Слегка затемняем любой цвет */
             }
 
+        /* Цветовые модификаторы */
+        .btn-green {
+            background-color: #2e7d32;
+        }
+
+        .btn-yellow {
+            background-color: #e3bc38;
+        }
+
+        .btn-red {
+            background-color: #f95757;
+        }
+
+        /* Стиль для синей кнопки редактирования */
+        .btn-edit-task {
+            background-color: #00a3ff; /* Синий цвет */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-weight: bold;
+            /* Добавляем плавный переход для анимации */
+            transition: filter 0.2s;
+        }
+
+            /* Анимация при наведении - легкое затемнение */
+            .btn-edit-task:hover {
+                filter: brightness(0.9);
+            }
         /* Аккуратная стрелка назад */
         .back-arrow {
             text-decoration: none;
@@ -153,14 +184,15 @@
                 </button>
 
                 <button id="btn-archive-course" class="btn-menu-add" onclick="archiveCourse()"
-                        style="display: none; background-color: #ff8618; margin-top: 10px;">
+                        style="display: none; background-color: #e3bc38; margin-top: 10px;">
                     📂 Archive Course
                 </button>
 
                 <button id="btn-unarchive-course" class="btn-menu-add" onclick="unarchiveCourse()"
-                        style="display:none; background-color: #fbc02d; color: #333; margin-top: 10px;">
+                        style="display: none; background-color: #e3bc38; color: #ffffff; margin-top: 10px; ">
                     ♻️ Restore Course
                 </button>
+
             </div>
 
             <div class="content-area" id="main-content">
@@ -192,6 +224,7 @@
             </div>
         </div>
     </div>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/@microsoft/signalr@latest/dist/browser/signalr.min.js"></script>
     <script src="course-details.js"></script>
     <script src="/chat.js" asp-append-version="true"></script>

@@ -86,6 +86,42 @@ namespace Learnio.Controllers
                 courseName = course.Name
             });
         }
+
+        // DELETE: api/Enrollments/kick
+        [HttpDelete("kick")]
+        public async Task<IActionResult> KickStudent([FromQuery] Guid courseId, [FromQuery] string studentId)
+        {
+            // 1. Находим запись о зачислении
+            var enrollment = await _context.Enrollments
+                .FirstOrDefaultAsync(e => e.CourseId == courseId && e.StudentId == studentId);
+
+            if (enrollment == null)
+            {
+                return NotFound("Student is not enrolled in this course.");
+            }
+
+            // 2. 🔥 УДАЛЯЕМ РАБОТЫ И ОЦЕНКИ (Только в рамках этого курса!)
+            // Ищем сдачи, где задание принадлежит этому курсу
+            var studentSubmissionsInThisCourse = await _context.Submissions
+                .Where(s => s.StudentId == studentId && s.Assignment.CourseId == courseId)
+                .ToListAsync();
+
+            if (studentSubmissionsInThisCourse.Any())
+            {
+                // Удаляем работы. Файлы ответов (если есть) можно тоже почистить с диска,
+                // но для простоты пока удаляем записи из БД.
+                _context.Submissions.RemoveRange(studentSubmissionsInThisCourse);
+            }
+
+            // 3. Удаляем студента с курса
+            _context.Enrollments.Remove(enrollment);
+
+            // 4. ЧАТ НЕ ТРОГАЕМ (Messages остаются)
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Student removed and their course data wiped." });
+        }
     }
 }
 

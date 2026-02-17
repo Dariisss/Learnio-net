@@ -17,5 +17,8 @@ namespace Learnio.Dtos
 
         [Range(1, 100)]
         public int MaxScore { get; set; } // Максимальная оценка (например, 100)
+
+        // 🔥 НОВОЕ ПОЛЕ: Флаг для удаления файла
+        public bool RemoveFile { get; set; }
     }
 }

@@ -86,6 +86,24 @@ async function loadCourseInfo() {
                     if (btnRestore) btnRestore.style.display = 'none';
                     if (btnArchive) btnArchive.style.display = 'block';
                 }
+
+                // 🔥 ДОБАВЛЯЕМ КНОПКУ УДАЛЕНИЯ
+                // Проверяем, нет ли ее уже (чтобы не дублировать)
+                if (!document.getElementById('btn-delete-course-permanent')) {
+                    const deleteBtnHtml = `
+                    <button id="btn-delete-course-permanent" class="btn-menu-add" 
+                            onclick="deleteCoursePermanently()"
+                            style="background-color: #f95757; margin-top: 15px; display:block;">
+                        🗑 Delete Course
+                    </button>
+                `;
+                    // Вставляем кнопку в конец блока .user-controls или .sidebar (где находятся остальные кнопки)
+                    // В вашем HTML кнопки лежат прямо в .sidebar
+                    const sidebar = document.querySelector('.sidebar');
+                    if (sidebar) {
+                        sidebar.insertAdjacentHTML('beforeend', deleteBtnHtml);
+                    }
+                }
             }
 
             renderStream();
@@ -137,6 +155,36 @@ async function unarchiveCourse() {
     } catch (e) {
         console.error(e);
         alert("Server error.");
+    }
+}
+
+// 3. ФУНКЦИЯ ПОЛНОГО УДАЛЕНИЯ КУРСА
+async function deleteCoursePermanently() {
+    // Двойное подтверждение для безопасности
+    if (!confirm("⚠️ DANGER ZONE ⚠️\n\nAre you sure you want to PERMANENTLY DELETE this course?")) {
+        return;
+    }
+
+    if (!confirm("This action cannot be undone.\n\n- All assignments will be lost.\n- All student grades will be lost.\n- All submissions will be deleted.\n\nDelete course?")) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/Courses/${courseId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            alert("Course deleted.");
+            // Редирект на главную (Dashboard)
+            window.location.href = "dashboard.html";
+        } else {
+            const text = await response.text();
+            alert("Error deleting course: " + text);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Network error.");
     }
 }
 
@@ -253,21 +301,210 @@ async function loadAssignments() {
             const taskData = JSON.stringify(task).replace(/"/g, '&quot;');
             const dateStr = formatKyivDate(task.deadline);
 
-            // Кнопка
-            const btnHtml = !isTeacher
-                ? `<button onclick="openTaskView(${taskData}, false)" class="btn-menu-add" style="display:block; width:auto; padding: 10px 20px;">Open</button>`
-                : `<button onclick="openTaskView(${taskData}, true)" class="btn-menu-add" style="display:block; width:auto; padding: 10px 20px;">View</button>`;
+            let buttonsHtml = '';
+
+            if (!isTeacher) {
+                // СТУДЕНТ
+                buttonsHtml = `<button onclick="openTaskView(${taskData}, false)" class="btn-menu-add" style="display:block; width:auto; padding: 8px 20px;">Open</button>`;
+            } else {
+                // УЧИТЕЛЬ: Кнопка View + Кнопка Edit (✏️)
+                buttonsHtml = `
+            <div style="display:flex; gap: 10px;">
+                <button onclick="openEditAssignmentModal(${taskData})" class="btn-edit-task">✏️ Edit</button>
+                <button onclick="openTaskView(${taskData}, true)" class="btn-menu-add" style="display:block; width:auto; padding: 8px 20px; margin:0;">View</button>
+            </div>
+        `;
+            }
 
             list.innerHTML += `
-                <div style="border-bottom:1px solid #eee; padding:20px 0; display:flex; justify-content:space-between; align-items:center;">
-                    <div style="display:flex; align-items:center; gap:15px;">
-                        <div style="background:#e8f5e9; color:#2e7d32; width:45px; height:45px; border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:20px;">📝</div>
-                        <div><div style="font-weight:bold; font-size:16px;">${task.title}</div><div style="font-size:13px; color:#666;">Due: ${dateStr} • ${task.maxScore} pts</div></div>
-                    </div>
-                    ${btnHtml}
-                </div>`;
+        <div style="border-bottom:1px solid #eee; padding:20px 0; display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:15px;">
+                <div style="background:#e8f5e9; color:#2e7d32; width:45px; height:45px; border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:20px;">📝</div>
+                <div>
+                    <div style="font-weight:bold; font-size:16px;">${task.title}</div>
+                    <div style="font-size:13px; color:#666;">Due: ${dateStr} • ${task.maxScore} pts</div>
+                </div>
+            </div>
+            ${buttonsHtml}
+        </div>`;
         });
     } catch (e) { list.innerHTML = 'Error loading list.'; }
+}
+
+function openEditAssignmentModal(task) {
+    const modal = document.getElementById('assignment-modal');
+    const contentBox = modal.querySelector('.modal-content');
+
+    modal.style.display = 'flex';
+    contentBox.classList.remove('modal-wide');
+
+    // Дата для инпута
+    const deadlineDate = new Date(task.deadline);
+    deadlineDate.setMinutes(deadlineDate.getMinutes() - deadlineDate.getTimezoneOffset());
+    const dateForInput = deadlineDate.toISOString().slice(0, 16);
+
+    // Логика отображения блока с файлом
+    let fileInfoHtml = '';
+    if (task.attachmentUrl) {
+        // Если файл есть: показываем галочку "Удалить файл"
+        fileInfoHtml = `
+            <div style="font-size:11px; color:#2e7d32; margin-bottom:5px;">✅ Current file attached</div>
+            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#c62828; cursor:pointer; margin-bottom:5px;">
+                <input type="checkbox" id="edit-remove-file"> Remove current file
+            </label>
+        `;
+    } else {
+        fileInfoHtml = `<div style="font-size:11px; color:#888; margin-bottom:5px;">❌ No file attached</div>`;
+    }
+
+    contentBox.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin-top:0; color:#ef6c00;">Edit Assignment</h3>
+            <button onclick="deleteAssignment('${task.id}')" style="background:transparent; border:1px solid #c62828; color:#c62828; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:12px;">🗑 Delete Task</button>
+        </div>
+        
+        <label style="font-size:12px; color:#666;">Title:</label>
+        <input type="text" id="edit-title" class="modal-input" value="${task.title}">
+
+        <label style="font-size:12px; color:#666;">Instructions:</label>
+        <textarea id="edit-desc" class="modal-input" rows="5" style="resize: vertical; font-family: inherit;">${task.description || ""}</textarea>
+
+        <div style="margin-bottom: 15px; background:#fff3e0; padding:10px; border-radius:5px;">
+            <label style="font-size: 12px; font-weight: bold; color: #555;">File Settings:</label>
+            ${fileInfoHtml}
+            <div style="font-size:10px; color:#555; margin-top:5px;">Upload new to replace:</div>
+            <input type="file" id="edit-file" style="margin-top: 2px;">
+        </div>
+
+        <label style="font-size:12px; color:#666;">Deadline:</label>
+        <input type="datetime-local" id="edit-deadline" class="modal-input" value="${dateForInput}">
+        
+        <label style="font-size:12px; color:#666;">Max Score:</label>
+        <input type="number" id="edit-score" class="modal-input" value="${task.maxScore}">
+
+        <div class="modal-buttons" style="text-align: right; margin-top: 20px;">
+            <button class="btn-cancel" onclick="closeAssignmentModal()" style="padding: 10px 20px; background: #eee; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">Cancel</button>
+            <button class="btn-create" onclick="submitEditAssignment('${task.id}')" style="padding: 10px 20px; background: #ef6c00; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight:bold;">Save Changes</button>
+        </div>
+    `;
+}
+
+async function submitEditAssignment(assignmentId) {
+    const titleVal = document.getElementById('edit-title').value;
+    const desc = document.getElementById('edit-desc').value;
+    const deadlineVal = document.getElementById('edit-deadline').value;
+    const score = document.getElementById('edit-score').value;
+
+    const fileInput = document.getElementById('edit-file');
+    // Проверяем, существует ли чекбокс (он есть, только если был файл) и нажат ли он
+    const removeCheck = document.getElementById('edit-remove-file');
+    const shouldRemoveFile = removeCheck && removeCheck.checked;
+
+    if (!titleVal || !deadlineVal || !score) {
+        alert("Title, Deadline and Score are required.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('CourseId', courseId);
+    formData.append('Title', titleVal);
+    formData.append('Description', desc);
+    formData.append('Deadline', deadlineVal);
+    formData.append('MaxScore', score);
+
+    // 1. Если загрузили новый файл
+    if (fileInput.files[0]) {
+        formData.append('File', fileInput.files[0]);
+    }
+    // 2. Иначе, если нажали "Удалить файл"
+    else if (shouldRemoveFile) {
+        formData.append('RemoveFile', 'true'); // Отправляем флаг на бэкенд
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/Assignments/${assignmentId}`, {
+            method: "PUT",
+            body: formData
+        });
+
+        if (response.ok) {
+            closeAssignmentModal();
+            switchTab('assignments'); // Обновляем список
+        } else {
+            const err = await response.text();
+            alert("Error updating: " + err);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Network error");
+    }
+}
+
+async function deleteAssignment(assignmentId) {
+    if (!confirm("⚠️ ARE YOU SURE?\n\nThis will delete the assignment AND ALL STUDENT GRADES/SUBMISSIONS for it.\nThis cannot be undone.")) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/Assignments/${assignmentId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            alert("Assignment deleted.");
+            closeAssignmentModal();
+            switchTab('assignments'); // Обновляем список, задание исчезнет
+        } else {
+            alert("Error deleting assignment.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Network error.");
+    }
+}
+// ОТПРАВИТЬ ИЗМЕНЕНИЯ (PUT)
+async function submitEditAssignment(assignmentId) {
+    const titleVal = document.getElementById('edit-title').value;
+    const desc = document.getElementById('edit-desc').value;
+    const deadlineVal = document.getElementById('edit-deadline').value;
+    const score = document.getElementById('edit-score').value;
+    const fileInput = document.getElementById('edit-file');
+
+    if (!titleVal || !deadlineVal || !score) {
+        alert("Title, Deadline and Score are required.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('CourseId', courseId); // Нужно для валидации DTO, хоть мы его и не меняем
+    formData.append('Title', titleVal);
+    formData.append('Description', desc);
+    formData.append('Deadline', deadlineVal);
+    formData.append('MaxScore', score);
+
+    // Если выбрали новый файл, отправляем его. Если нет - бэкенд оставит старый.
+    if (fileInput.files[0]) {
+        formData.append('File', fileInput.files[0]);
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/Assignments/${assignmentId}`, {
+            method: "PUT",
+            body: formData
+        });
+
+        if (response.ok) {
+            closeAssignmentModal();
+            // Обновляем список, чтобы увидеть изменения
+            switchTab('assignments');
+        } else {
+            const err = await response.text();
+            alert("Error updating: " + err);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Network error");
+    }
 }
 
 // =======================================================
@@ -597,12 +834,13 @@ async function renderPeople() {
                 students.forEach((s) => {
                     const sName = `${s.firstName || "Student"} ${s.lastName || ""}`;
 
+                    // Получаем ID
                     let rawId = s.id || s.Id || s.studentId || s.StudentId || s.userId || s.UserId;
                     let sId = rawId ? String(rawId).toLowerCase() : "undefined";
 
-                    // Берем аватар студента
-                    const userAvatar = s.avatarUrl || s.AvatarUrl || "";
+                    const userAvatar = s.avatarUrl || s.AvatarUrl;
 
+                    // Рендер аватарки (код остался тем же)
                     let avatarHtml;
                     if (userAvatar) {
                         avatarHtml = `<img src="${userAvatar}" style="width:40px; height:40px; border-radius:50%; margin-right:15px; object-fit:cover;" alt="${sName}" />`;
@@ -610,25 +848,71 @@ async function renderPeople() {
                         avatarHtml = `<div style="width:40px; height:40px; background:#555; color:white; border-radius:50%; display:flex; justify-content:center; align-items:center; font-weight:bold; margin-right:15px;">${sName[0]}</div>`;
                     }
 
-                    let studentChatBtn = '';
+                    // 🔥 БЛОК КНОПОК
+                    let actionsHtml = '';
+
+                    // Если Я - Учитель, то показываю кнопки управления
                     if (iAmTeacher && sId !== "undefined" && sId !== myIdClean) {
-                        // 🔥 ВАЖНО: Третий параметр '${userAvatar}' передает фото в чат сразу!
-                        studentChatBtn = `<button onclick="startChat('${sId}', '${sName}', '${userAvatar}')" style="background:#e8f5e9; color:#2e7d32; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer; font-size:20px;">✉️</button>`;
+                        actionsHtml = `
+                            <div style="display:flex; gap: 8px;">
+                                <button onclick="startChat('${sId}', '${sName}', '${userAvatar || ""}')" 
+                                        title="Message"
+                                        style="background:#e8f5e9; color:#2e7d32; border:none; width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center;">
+                                    ✉️
+                                </button>
+
+                                <button onclick="kickStudent('${sId}', '${sName}')" 
+                                        title="Remove from course"
+                                        style="background:#ffebee; color:#c62828; border:1px solid #ffcdd2; width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">
+                                    ❌
+                                </button>
+                            </div>
+                        `;
                     }
 
+                    // Вывод строки студента
                     list.innerHTML += `
-                        <div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content: space-between; align-items:center;">
-                            <div style="display:flex; align-items:center;">
-                                ${avatarHtml}
-                                <div><div style="font-weight:bold;">${sName}</div><div style="font-size:12px; color:#888;">Student</div></div>
+                    <div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content: space-between; align-items:center;">
+                        <div style="display:flex; align-items:center;">
+                            ${avatarHtml}
+                            <div>
+                                <div style="font-weight:bold;">${sName}</div>
+                                <div style="font-size:12px; color:#888;">Student</div>
                             </div>
-                            ${studentChatBtn}
-                        </div>`;
+                        </div>
+                        ${actionsHtml}
+                    </div>`;
                 });
             }
         }
     } catch (e) {
         console.error(e);
+    }
+}
+
+// ФУНКЦИЯ УДАЛЕНИЯ СТУДЕНТА (KICK)
+async function kickStudent(studentId, studentName) {
+    if (!confirm(`⚠️ Remove ${studentName} from the course?\n\n- They will be removed from the list.\n- Their grades and submissions for THIS course will be deleted.\n- Chat history will be KEPT.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/Enrollments/kick?courseId=${courseId}&studentId=${studentId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            // Успех
+            alert(`${studentName} removed.`);
+            // Перерисовываем список людей, чтобы студент исчез
+            renderPeople();
+        } else {
+            const text = await response.text();
+            alert("Error: " + text);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Network error.");
     }
 }
 
@@ -1184,37 +1468,51 @@ async function renderGrades() {
     }
 }
 
-// 12. ФУНКЦИЯ СКАЧИВАНИЯ EXCEL (CSV)
+// 12. ФУНКЦИЯ СКАЧИВАНИЯ EXCEL (.XLSX)
 function downloadGradebookAsExcel(data) {
-    // 1. Формируем заголовок (Student Name, Task 1, Task 2...)
-    let csvContent = "Student Name";
+    // 1. Формируем массив массивов (строки таблицы)
+    const rows = [];
+
+    // --- ЗАГОЛОВОК ---
+    const headerRow = ["Student Name"];
+
+    // Добавляем названия заданий и макс. балл в скобках
     data.assignments.forEach(a => {
-        // Убираем запятые из названий заданий, чтобы не ломать CSV
-        csvContent += "," + a.title.replace(/,/g, "");
+        headerRow.push(`${a.title} (Max: ${a.maxScore})`);
     });
-    csvContent += "\n";
+    rows.push(headerRow);
 
-    // 2. Формируем строки (Jack Hardy, 100, 95...)
+    // --- ДАННЫЕ СТУДЕНТОВ ---
     data.students.forEach(student => {
-        let row = student.studentName;
+        const row = [student.studentName];
+
         student.grades.forEach(g => {
-            // Если оценки нет - пустая строка
-            let score = g.score !== null ? g.score : "";
-            row += "," + score;
+            // Если оценки нет, оставляем пусто, иначе пишем число
+            // (Excel сам поймет, что это число)
+            row.push(g.score !== null ? g.score : "");
         });
-        csvContent += row + "\n";
+
+        rows.push(row);
     });
 
-    // 3. Создаем файл для скачивания
-    // \uFEFF нужно, чтобы Excel понял кириллицу (рус/укр буквы)
-    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    // 2. Создаем рабочую книгу (Workbook) и лист (Worksheet)
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows); // aoa = Array of Arrays
 
-    // 4. Создаем невидимую ссылку и нажимаем на нее
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Gradebook_${currentCourseData.name}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // 3. Автоматическая ширина колонок (для красоты)
+    // Вычисляем ширину для первой колонки (Имя) и остальных (Оценки)
+    const wscols = [
+        { wch: 25 } // Ширина для "Student Name" (примерно 25 символов)
+    ];
+    // Для остальных колонок (заданий) ставим ширину 15
+    data.assignments.forEach(() => wscols.push({ wch: 20 }));
+    ws['!cols'] = wscols;
+
+    // 4. Добавляем лист в книгу
+    XLSX.utils.book_append_sheet(wb, ws, "Gradebook");
+
+    // 5. Скачиваем файл .xlsx
+    // Библиотека сама создаст Blob и ссылку
+    const fileName = `Gradebook_${currentCourseData.name}.xlsx`;
+    XLSX.writeFile(wb, fileName);
 }

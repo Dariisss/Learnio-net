@@ -156,7 +156,7 @@ namespace Learnio.Controllers
                 course.JoinCode,
                 course.IsArchived, // Повертаємо статус
                 TeacherName = course.Teacher == null ? "Unknown" : course.Teacher.FirstName + " " + course.Teacher.LastName,
-                // 🔥 ВСТАВИТЬ СЮДА (обратите внимание: тут переменная course, а не c)
+                // 🔥 ADD THIS LINE (use 'course', not 'c')
                 TeacherAvatarUrl = course.Teacher != null ? course.Teacher.AvatarUrl : null
             });
         }
@@ -183,6 +183,28 @@ namespace Learnio.Controllers
             var random = new Random();
             return new string(Enumerable.Repeat(chars, 6)
                 .Select(s => s[random.Next(s.Length)]).ToArray());
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteCourse(Guid id)
+        {
+            // 1. Ищем курс
+            var course = await _context.Courses.FindAsync(id);
+            if (course == null) return NotFound("Course not found");
+
+            // 2. (Опционально) Проверка прав - удалять может только владелец
+            // Если у вас есть AuthController, можно проверить User.Identity.Name
+            // Но пока оставим базовое удаление по ID
+
+            // 3. Удаляем курс
+            // Благодаря Cascade Delete в DbContext удалятся:
+            // - Enrollments (студенты вылетят)
+            // - Assignments (задания исчезнут)
+            // - Submissions (оценки исчезнут)
+            _context.Courses.Remove(course);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Course deleted successfully" });
         }
     }
 }

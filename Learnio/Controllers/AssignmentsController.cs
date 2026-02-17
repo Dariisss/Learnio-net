@@ -70,6 +70,85 @@ namespace Learnio.Controllers
 
             return Ok(assignment);
         }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateAssignment(Guid id, [FromForm] CreateAssignmentDto model)
+        {
+            var assignment = await _context.Assignments.FindAsync(id);
+            if (assignment == null) return NotFound("Assignment not found");
+
+            // Обновляем текст
+            assignment.Title = model.Title;
+            assignment.Description = model.Description;
+            assignment.Deadline = model.Deadline;
+            assignment.MaxScore = model.MaxScore;
+
+            // Логика работы с файлами
+            // 1. Если загрузили НОВЫЙ файл
+            if (model.File != null)
+            {
+                // Удаляем старый с диска
+                if (!string.IsNullOrEmpty(assignment.AttachmentUrl))
+                {
+                    var oldPath = Path.Combine(_env.WebRootPath, assignment.AttachmentUrl.TrimStart('/'));
+                    if (System.IO.File.Exists(oldPath)) System.IO.File.Delete(oldPath);
+                }
+
+                // Сохраняем новый
+                var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads");
+                if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+
+                var uniqueFileName = Guid.NewGuid().ToString() + "_" + model.File.FileName;
+                var fullPath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                using (var stream = new FileStream(fullPath, FileMode.Create))
+                {
+                    await model.File.CopyToAsync(stream);
+                }
+
+                assignment.AttachmentUrl = "/uploads/" + uniqueFileName;
+            }
+            // 2. Если файл НЕ загрузили, но попросили УДАЛИТЬ старый (RemoveFile == true)
+            else if (model.RemoveFile)
+            {
+                if (!string.IsNullOrEmpty(assignment.AttachmentUrl))
+                {
+                    var oldPath = Path.Combine(_env.WebRootPath, assignment.AttachmentUrl.TrimStart('/'));
+                    if (System.IO.File.Exists(oldPath)) System.IO.File.Delete(oldPath);
+                }
+
+                // Очищаем ссылку в базе
+                assignment.AttachmentUrl = null;
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(assignment);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteAssignment(Guid id)
+        {
+            var assignment = await _context.Assignments.FindAsync(id);
+            if (assignment == null) return NotFound();
+
+            // Удаляем файл с диска, чтобы не занимал место
+            if (!string.IsNullOrEmpty(assignment.AttachmentUrl))
+            {
+                var filePath = Path.Combine(_env.WebRootPath, assignment.AttachmentUrl.TrimStart('/'));
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+            }
+
+            // Удаляем задание (SQL сам удалит Submissions благодаря Cascade Delete)
+            _context.Assignments.Remove(assignment);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Assignment deleted" });
+        }
+    }
+
     }
 
     // DTO тоже меняем на Title
@@ -84,5 +163,7 @@ namespace Learnio.Controllers
         public DateTime Deadline { get; set; }
         public int MaxScore { get; set; }
         public IFormFile? File { get; set; }
-    }
+
+        // 🔥 НОВОЕ ПОЛЕ: Флаг для удаления файла
+        public bool RemoveFile { get; set; }
 }
